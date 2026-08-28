@@ -28,6 +28,18 @@ import {
   parseServiceAccount,
   type ServiceAccount,
 } from './lib/google-auth.ts'
+import {
+  clearFeedback,
+  FeedbackError,
+  forQuestion,
+  loadFeedback,
+  saveVote,
+  VOTE_LABEL,
+  whenLabel,
+  type Evidence,
+  type FeedbackRecord,
+  type Vote,
+} from './lib/feedback.ts'
 import { buildPrompt, extractCitations } from './lib/prompt.ts'
 import {
   cosine,
@@ -77,9 +89,14 @@ const MODEL_STORE = 'm05.geminiModel'
 const LOCATION_STORE = 'm05.vertexLocation'
 
 type Answer = {
+  /** 이 답변을 낳은 질문. 입력창은 그새 바뀔 수 있으므로 답변이 스스로 들고 있어야 한다 */
+  question: string
   text: string
   /** 이 답변이 어느 근거를 받고 쓰였는지. 근거가 바뀐 뒤에도 답변은 그대로 남아야 한다 */
   labels: string[]
+  /** 라벨이 가리키는 실제 조문. 피드백 기록(S10)이 이걸 같이 남긴다 — 라벨만으로는
+   *  나중에 「무엇을 보고 그렇게 눌렀는지」가 복원되지 않는다 */
+  evidence: Evidence[]
   engine: EngineKind
   model: string
   done: boolean
@@ -173,6 +190,16 @@ export default function App() {
 
   const [bm25, setBm25] = useState<Bm25Index | null>(null)
 
+  // ── S10: 사람 피드백 ────────────────────────────────────────────────────────
+  // 첫 렌더에서 바로 읽는다 — 새로고침 직후에도 「남긴 피드백」이 보여야 하고,
+  // 그게 브라우저 로컬 저장의 요점이다
+  const [log, setLog] = useState<FeedbackRecord[]>(() => loadFeedback())
+  /** 지금 보고 있는 답변에 남긴 평가의 id. 👍 → 👎 는 새 기록이 아니라 정정이다 */
+  const [voteId, setVoteId] = useState<string | null>(null)
+  const [fbError, setFbError] = useState<string | null>(null)
+  /** 지우기는 되돌릴 수 없다. `confirm()` 대신 화면 안에서 두 번 누르게 한다 */
+  const [confirmClear, setConfirmClear] = useState(false)
+
   // ── S9: 연결 상태와 콜드 스타트 ───────────────────────────────────────────
   const [ollamaProbe, setOllamaProbe] = useState<OllamaProbe | null>(null)
   const [ollamaFail, setOllamaFail] = useState<{ message: string; hint?: string } | null>(null)
@@ -255,6 +282,9 @@ export default function App() {
     if (!found?.length) return
 
     const labelled = found.map((h, i) => ({ chunk: corpus.chunks[h.index], label: `S${i + 1}` }))
+    // 새 답변에는 아직 평가가 없다. 앞 답변의 평가가 이어 보이면 그게 거짓이 된다
+    setVoteId(null)
+    setFbError(null)
     const dates = corpus.chunks.map((c) => c.effectiveDate).sort()
     const prompt = buildPrompt({
       question: q.trim(),
@@ -284,8 +314,15 @@ export default function App() {
     const t0 = performance.now()
     let first: number | null = null
     setAnswer({
+      question: q.trim(),
       text: '',
       labels: labelled.map((l) => l.label),
+      evidence: labelled.map(({ chunk, label }) => ({
+        label,
+        chunkId: chunk.id,
+        source: chunk.source,
+        path: chunk.path,
+      })),
       engine,
       model: config.model,
       done: false,
@@ -329,6 +366,36 @@ export default function App() {
     setAnswer((a) => (a ? { ...a, done: true, cancelled: true } : a))
   }
 
+  /**
+   * S10 — 이 답변에 대한 평가를 남긴다. 서버로 가지 않는다.
+   * 같은 답변에 다시 누르면 **정정**이고(기록이 늘지 않는다), 같은 버튼을 다시 누르면 취소가
+   * 아니라 그대로다 — 「평가를 지웠다」와 「아직 안 눌렀다」를 구분해 둘 이유가 없다.
+   */
+  const vote = (v: Vote) => {
+    if (!answer) return
+    const cited = extractCitations(answer.text)
+    try {
+      const { list, record } = saveVote({
+        id: voteId,
+        vote: v,
+        question: answer.question,
+        answerText: answer.text,
+        cancelled: answer.cancelled,
+        evidence: answer.evidence,
+        cited,
+        invalidCited: cited.filter((c) => !answer.labels.includes(c)),
+        engine: answer.engine,
+        model: answer.model,
+        flavor: answer.engine === 'gemini' ? flavor : undefined,
+      })
+      setLog(list)
+      setVoteId(record.id)
+      setFbError(null)
+    } catch (e) {
+      setFbError(e instanceof FeedbackError ? e.message : (e as Error).message)
+    }
+  }
+
   /** 키를 이 브라우저에 남길지 반영한다 */
   const applyRemember = (on: boolean) => {
     setRememberKey(on)
@@ -369,6 +436,11 @@ export default function App() {
    */
   const geminiAnswered =
     answer?.engine === 'gemini' && !!answer.text && answer.model === geminiModel.trim()
+
+  /** 지금 답변에 남긴 평가(있으면). 기록 자체를 보여 준다 — 「눌렸다」는 화면 상태가 아니라 저장된 사실이다 */
+  const currentVote = voteId ? (log.find((r) => r.id === voteId) ?? null) : null
+  /** 같은 질문을 다시 물었을 때 보이는 지난 평가. 지금 평가는 세지 않는다 */
+  const priorSame = answer ? forQuestion(log, answer.question, voteId) : null
 
   /** 예열 — 콜드 43초를 질문 *전에* 치른다 */
   const warmUp = async () => {
@@ -811,6 +883,78 @@ export default function App() {
                 })()}
               </p>
             )}
+            {/* ── 판정 영역 ────────────────────────────────────────────────────
+                A6 은 「피드백을 남기면 **판정 결과와 함께** 보인다」다. 그래서 사람 피드백을
+                답변 본문이 아니라 **판정과 같은 층**에 둔다 (PRD 5절 규칙 1: 답변과 판정은
+                서로 다른 시각적 층).
+
+                **S8 은 이 줄의 왼쪽에 카드를 두 장 끼우면 된다** — 규칙 배지(결정적)와
+                LLM 배지(확률적). 지금 자리를 잡아 두는 이유가 그것이고, 셋이 나란히 서는
+                레이아웃은 아래 `.verdicts` 하나로 이미 성립한다. 배지 모양은 서로 달라야
+                한다(PRD 5절 규칙 4) — 그 구분은 S8 이 정한다. */}
+            {answer.done && (
+              <div className="verdicts">
+                <div className="verdict verdict-pending">
+                  <h3>자동 판정</h3>
+                  <p className="muted">
+                    <strong>아직 없습니다 (S8).</strong> 규칙(인용 유효성·거절)과 LLM(근거성)
+                    배지가 이 자리에 붙습니다.
+                  </p>
+                </div>
+
+                <div className="verdict verdict-human">
+                  <h3>
+                    사람 피드백{' '}
+                    <span className="muted">· 이 브라우저에만 남습니다</span>
+                  </h3>
+                  <div className="votes">
+                    {(['up', 'down'] as Vote[]).map((v) => (
+                      <button
+                        key={v}
+                        type="button"
+                        className="vote"
+                        aria-pressed={currentVote?.vote === v}
+                        onClick={() => vote(v)}
+                      >
+                        {VOTE_LABEL[v]}
+                      </button>
+                    ))}
+                  </div>
+                  {currentVote ? (
+                    <p className="muted">
+                      {VOTE_LABEL[currentVote.vote]} 로 남겼습니다 ·{' '}
+                      {whenLabel(currentVote.at)} · 근거 {currentVote.evidence.length}개
+                      {currentVote.cited.length
+                        ? ` · 인용 ${currentVote.cited.join(' ')}`
+                        : ' · 인용 없음'}
+                    </p>
+                  ) : (
+                    <p className="muted">
+                      이 답변이 근거를 제대로 댔는지 평가해 주세요. 서버로 보내지 않습니다.
+                    </p>
+                  )}
+                  {/* 같은 질문을 다시 물었을 때 지난 평가가 보인다 — 새로고침을 건너
+                      살아남는 것이 이 기능의 요점이다 */}
+                  {priorSame && (priorSame.up > 0 || priorSame.down > 0) && (
+                    <p className="muted">
+                      이 질문에 남긴 지난 평가 — 👍 {priorSame.up} · 👎 {priorSame.down}
+                      {priorSame.latest && (
+                        <>
+                          {' '}
+                          (마지막 {whenLabel(priorSame.latest.at)} · {priorSame.latest.engine}{' '}
+                          {priorSame.latest.model})
+                        </>
+                      )}
+                    </p>
+                  )}
+                  {fbError && (
+                    <p className="disclaimer" role="note">
+                      {fbError}
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
             <p className="disclaimer" role="note">
               <strong>법률 자문이 아닙니다.</strong> 아래 조문 원문을 직접 확인하세요.
             </p>
@@ -853,6 +997,81 @@ export default function App() {
                 )
               })}
             </ol>
+          </section>
+        )}
+
+        {/* S10 — 남긴 피드백 목록. **답변이 없어도 보인다**: 새로고침하면 대화는 사라지지만
+            평가는 남고, 남는다는 사실을 확인할 수 있는 곳이 여기다.
+            S11 이 사람 평가로 쓰는 것도 이 목록이다 (JSON 으로 그대로 복사해 갈 수 있다) */}
+        {log.length > 0 && (
+          <section>
+            <h2>
+              남긴 피드백 {log.length}개{' '}
+              <span className="muted">
+                · 👍 {log.filter((r) => r.vote === 'up').length} · 👎{' '}
+                {log.filter((r) => r.vote === 'down').length}
+              </span>
+            </h2>
+            <p className="muted">
+              이 기기의 브라우저 저장소(<code>localStorage</code>)에만 있습니다. 서버로 보내지
+              않으므로 <strong>다른 사람의 피드백은 모이지 않습니다</strong> (PRD 6절).
+            </p>
+            <ol className="fb-log">
+              {[...log].reverse().map((r) => (
+                <li key={r.id}>
+                  <div className="fb-head">
+                    <span className={`fb-vote fb-${r.vote}`}>{VOTE_LABEL[r.vote]}</span>
+                    <span className="muted">{whenLabel(r.at)}</span>
+                    <span className="muted">
+                      {r.engine} {r.model}
+                      {r.flavor ? ` · ${r.flavor}` : ''}
+                    </span>
+                    {r.cancelled && <span className="muted">중단된 답변</span>}
+                  </div>
+                  <p className="fb-q">{r.question}</p>
+                  <p className="muted">
+                    근거 {r.evidence.length}개 —{' '}
+                    {r.evidence.map((e) => `${e.label} ${e.source} ${e.path}`).join(' / ')}
+                  </p>
+                  <p className="muted">
+                    {r.cited.length ? `인용 ${r.cited.join(' ')}` : '인용 없음'}
+                    {r.invalidCited.length ? ` · 없는 자료 인용 ${r.invalidCited.join(' ')}` : ''}
+                    {' · 자동 판정 없음 (S8)'}
+                  </p>
+                  <details>
+                    <summary className="muted">저장된 답변 전문 보기</summary>
+                    <p className="fb-answer">
+                      {r.answerText}
+                      {r.answerTruncated && ' …(이후 생략)'}
+                    </p>
+                  </details>
+                </li>
+              ))}
+            </ol>
+            <div className="conn-row">
+              {confirmClear ? (
+                <>
+                  <button
+                    className="ghost"
+                    type="button"
+                    onClick={() => {
+                      setLog(clearFeedback())
+                      setVoteId(null)
+                      setConfirmClear(false)
+                    }}
+                  >
+                    정말 지웁니다 ({log.length}개)
+                  </button>
+                  <button className="ghost" type="button" onClick={() => setConfirmClear(false)}>
+                    취소
+                  </button>
+                </>
+              ) : (
+                <button className="ghost" type="button" onClick={() => setConfirmClear(true)}>
+                  이 브라우저의 피드백 모두 지우기
+                </button>
+              )}
+            </div>
           </section>
         )}
       </main>

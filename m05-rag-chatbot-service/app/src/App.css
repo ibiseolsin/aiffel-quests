@@ -457,3 +457,127 @@
   border-top: 1px solid var(--border);
   padding-top: 0.7rem;
 }
+
+/* --- S10: 판정 영역과 사람 피드백 --- */
+
+/* 답변과 다른 층에 서는 줄(PRD 5절 규칙 1). **S8 의 규칙·LLM 배지가 여기 같이 선다** —
+   카드를 앞에 끼우기만 하면 되도록 flex-wrap 으로 두었다 */
+.verdicts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin: 0 0 0.7rem;
+}
+
+.verdict {
+  flex: 1 1 16rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.7rem 0.85rem;
+}
+
+.verdict h3 {
+  margin: 0 0 0.5rem;
+  font-size: 0.9rem;
+}
+
+.verdict p {
+  margin: 0.35rem 0 0;
+}
+
+/* 아직 만들지 않은 것을 만든 것처럼 그리지 않는다 — 점선이 「빈 자리」를 말한다 */
+.verdict-pending {
+  border-style: dashed;
+}
+
+.votes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.vote {
+  font: inherit;
+  font-size: 0.9rem;
+  color: var(--muted);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.3rem 0.8rem;
+  cursor: pointer;
+}
+
+.vote:hover {
+  color: var(--text);
+  border-color: var(--accent);
+}
+
+/* 눌린 것을 색만으로 말하지 않는다 (S9 의 상태 배지와 같은 원칙) */
+.vote[aria-pressed='true'] {
+  color: var(--text);
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+  font-weight: 600;
+}
+
+.fb-log {
+  list-style: none;
+  margin: 0.7rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.6rem;
+}
+
+.fb-log > li {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.7rem 0.85rem;
+}
+
+.fb-log p {
+  margin: 0.3rem 0 0;
+}
+
+.fb-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.6rem;
+  font-size: 0.8rem;
+}
+
+.fb-vote {
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  padding: 0.05rem 0.5rem;
+  white-space: nowrap;
+}
+
+.fb-up {
+  color: #2f7d4f;
+}
+
+.fb-down {
+  color: #8a5a2b;
+}
+
+@media (prefers-color-scheme: dark) {
+  .fb-up {
+    color: #7ecb9a;
+  }
+  .fb-down {
+    color: #d9a86c;
+  }
+}
+
+.fb-q {
+  font-weight: 600;
+}
+
+.fb-answer {
+  white-space: pre-wrap;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
