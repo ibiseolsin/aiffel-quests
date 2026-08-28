@@ -153,7 +153,22 @@ async function* lines(res: Response, signal: AbortSignal): AsyncGenerator<string
  * 자주 갈리는 실패에만 한 줄을 앞에 붙인다. **본문은 늘 그대로 이어 붙인다** —
  * 우리가 알아본 실패에 대한 설명이 원문을 가리면, 알아보지 못한 실패에서 단서가 사라진다.
  */
-function explainGeminiError(flavor: ApiFlavor, body: string): string {
+function explainGeminiError(flavor: ApiFlavor, status: number, body: string): string {
+  // 다시 눌러 볼 만한 실패와 그렇지 않은 실패를 가른다. 이게 안 갈리면 사용자는
+  // 잠깐 몰린 것을 두고 키·모델명·권한을 다 뒤지게 된다 (실측: 503 UNAVAILABLE)
+  if (status === 503 || body.includes('UNAVAILABLE')) {
+    return (
+      '구글 쪽이 지금 이 모델에 몰려 있습니다. 키·모델 이름·권한 문제가 아니라 ' +
+      '**일시적인 것**이니 잠시 뒤 다시 눌러 보세요. 급하면 모델 ID 를 다른 이름으로 ' +
+      '바꿔 보십시오 — 모델마다 혼잡도가 다릅니다.\n\n'
+    )
+  }
+  if (status === 429 || body.includes('RESOURCE_EXHAUSTED')) {
+    return (
+      '요청 한도에 걸렸습니다. AI Studio 무료 등급은 분당·하루 요청 수에 제한이 있습니다 — ' +
+      '조금 기다렸다 다시 누르거나, 한도가 다른 모델 ID 로 바꿔 보세요.\n\n'
+    )
+  }
   if (body.includes('API keys are not supported by this API')) {
     return (
       '이 호스트(aiplatform.googleapis.com)는 API 키를 받지 않는다고 답했습니다. ' +
@@ -230,7 +245,7 @@ async function generateGemini(
     // (모델 이름이 틀렸다 · 그 프로젝트에 권한이 없다 · 키 종류가 다르다)을 알 수 없다
     throw new EngineError(
       `Gemini 오류 ${res.status} (${who}, ${config.model})`,
-      `${explainGeminiError(flavor, body)}${body.slice(0, 400) || '응답 본문이 비어 있다'}`,
+      `${explainGeminiError(flavor, res.status, body)}${body.slice(0, 400) || '응답 본문이 비어 있다'}`,
     )
   }
 
@@ -267,6 +282,64 @@ async function generateGemini(
  * 그래서 로컬 엔진은 `localhost` 에서 여는 것이 확실한 길이다.
  */
 
+/**
+ * 콜드 스타트 실측값 (FINDINGS 1절, 2026-08-28). 첫 요청에서 모델을 메모리에 올리는 시간.
+ * **진행 표시의 눈금으로만 쓴다** — 이 값을 넘겼다고 실패가 아니고, 기계마다 다르다.
+ */
+export const OLLAMA_COLD_MS = 43_000
+
+/**
+ * 화면에 상시 붙는 연결 상태. **확인하지 않은 것을 「연결됨」이라고 쓰지 않는다** —
+ * 그래서 단계가 다섯이다. `warn` 은 "자격증명은 있는데 아직 불러 보지 않았다" 이고,
+ * 이 구분이 없으면 사용자가 키를 넣은 것과 그 키가 통하는 것을 같은 것으로 읽는다.
+ */
+export type StatusLevel = 'ok' | 'warn' | 'bad' | 'checking' | 'unknown'
+
+export type EngineStatus = {
+  level: StatusLevel
+  /** 한 줄 요약. 배지에 그대로 들어간다 */
+  label: string
+  /** 요약 옆에 붙는 사실 (버전·계정·모델 등) */
+  detail?: string
+  /** 무엇을 하면 되는지 */
+  hint?: string
+}
+
+/**
+ * Gemini 는 **부르지 않고는 확인할 수 없다** — 그리고 확인용으로 부르면 사용자 쿼터를 쓴다.
+ * 그래서 여기서는 자격증명의 유무만 정직하게 말하고, 실제 응답이 한 번 온 뒤에만 `ok` 가 된다.
+ */
+export function geminiStatus(args: {
+  flavor: ApiFlavor
+  apiKey: string
+  serviceAccount: ServiceAccount | null
+  /** 이 창구·모델로 실제 응답을 받은 적이 있는가 (이번 세션에서) */
+  answered: boolean
+}): EngineStatus {
+  const { flavor, apiKey, serviceAccount, answered } = args
+  const who = API_FLAVOR_LABEL[flavor]
+  if (flavor === 'vertex-sa') {
+    if (!serviceAccount) {
+      return { level: 'bad', label: '서비스 계정 JSON 없음', detail: who, hint: 'JSON 파일을 고르세요' }
+    }
+    const detail = `${who} · ${describeServiceAccount(serviceAccount)}`
+    return answered
+      ? { level: 'ok', label: '응답 확인됨', detail }
+      : { level: 'warn', label: '자격증명 있음 (미확인)', detail, hint: '실제로 통하는지는 질문을 한 번 던져야 압니다' }
+  }
+  if (!apiKey.trim()) {
+    return { level: 'bad', label: '키 없음', detail: who, hint: 'API 키를 입력하세요' }
+  }
+  return answered
+    ? { level: 'ok', label: '응답 확인됨', detail: who }
+    : {
+        level: 'warn',
+        label: '키 있음 (미확인)',
+        detail: who,
+        hint: '키가 통하는지는 질문을 한 번 던져야 압니다 — 확인만 하려고 부르면 사용자 쿼터를 씁니다',
+      }
+}
+
 /** 이 페이지에서 이 주소를 부를 때 브라우저가 막을 가능성이 있는지 미리 본다 */
 export function localEngineWarning(baseUrl: string): string | null {
   if (typeof location === 'undefined') return null
@@ -275,16 +348,70 @@ export function localEngineWarning(baseUrl: string): string | null {
   return `이 페이지는 https(${location.origin})인데 Ollama 는 ${baseUrl} 입니다. 그대로는 브라우저나 Ollama 가 요청을 막습니다.`
 }
 
-/** 답을 만들기 전에 연결만 확인한다. 실패 원인을 질문 없이 알 수 있게 */
-export async function pingOllama(
+/**
+ * 답을 만들기 전에 연결을 확인한다. **셋을 한 번에 본다** — 버전(켜져 있는가) ·
+ * 모델 목록(받아 뒀는가) · 실행 중 목록(**메모리에 올라 있는가**).
+ *
+ * 마지막 것이 콜드 43초의 정체다. `/api/ps` 가 이 모델을 들고 있으면 웜이고,
+ * 비어 있으면 다음 첫 질문이 콜드다. 이걸 화면에 적어 두면 사용자가 43초를 고장으로 읽지 않는다.
+ */
+export type OllamaProbe = {
+  version: string
+  /** 이 모델을 pull 해 뒀는가 */
+  hasModel: boolean
+  /** 받아 둔 모델 이름들 — 없을 때 무엇을 pull 해야 하는지 보이려고 */
+  models: string[]
+  /** 지금 메모리에 올라 있는가 (= 예열됨) */
+  warm: boolean
+  /** 예열이 언제까지 유지되는가 (`/api/ps` 의 `expires_at`) */
+  warmUntil?: string
+}
+
+export async function probeOllama(
   baseUrl: string,
-): Promise<{ ok: true; version: string } | { ok: false; message: string; hint?: string }> {
+  model: string,
+  signal?: AbortSignal,
+): Promise<{ ok: true; probe: OllamaProbe } | { ok: false; message: string; hint?: string }> {
   try {
-    const res = await fetch(`${baseUrl}/api/version`)
-    if (!res.ok) return { ok: false, message: `Ollama 가 ${res.status} 를 돌려줬다` }
-    const json = await res.json()
-    return { ok: true, version: String(json.version ?? '알 수 없음') }
+    const res = await fetch(`${baseUrl}/api/version`, { signal })
+    if (!res.ok) {
+      return {
+        ok: false,
+        message: `Ollama 가 ${res.status} 를 돌려줬다`,
+        // 403 은 Ollama 자신이 origin 을 거절한 것이다 — 꺼져 있는 것과 원인이 다르다
+        hint:
+          res.status === 403
+            ? `Ollama 가 이 페이지의 origin(${typeof location === 'undefined' ? '?' : location.origin})을 거절했습니다. OLLAMA_ORIGINS 에 이 주소를 넣고 Ollama 를 다시 시작해야 합니다`
+            : undefined,
+      }
+    }
+    const version = String((await res.json()).version ?? '알 수 없음')
+
+    // 모델 목록과 실행 중 목록은 없어도 치명적이지 않다 — 버전이 왔으면 연결은 된 것이다
+    const models: string[] = await fetch(`${baseUrl}/api/tags`, { signal })
+      .then((r) => (r.ok ? r.json() : { models: [] }))
+      .then((j) => (j.models ?? []).map((m: { name?: string }) => String(m.name ?? '')))
+      .catch(() => [])
+    const running: { name?: string; expires_at?: string }[] = await fetch(`${baseUrl}/api/ps`, {
+      signal,
+    })
+      .then((r) => (r.ok ? r.json() : { models: [] }))
+      .then((j) => j.models ?? [])
+      .catch(() => [])
+    const live = running.find((m) => m.name === model)
+
+    return {
+      ok: true,
+      probe: {
+        version,
+        models,
+        hasModel: models.includes(model),
+        warm: !!live,
+        warmUntil: live?.expires_at,
+      },
+    }
   } catch (e) {
+    if (signal?.aborted) return { ok: false, message: '확인을 중단했다' }
     return {
       ok: false,
       message: `연결하지 못했다: ${(e as Error).message}`,
@@ -293,6 +420,75 @@ export async function pingOllama(
         'Ollama 가 켜져 있는지 확인하세요 (`ollama serve`). 켜져 있는데도 안 되면 OLLAMA_ORIGINS 설정이 필요합니다',
     }
   }
+}
+
+/** 프로브 결과를 화면 배지 하나로 접는다 */
+export function ollamaStatus(
+  probe: OllamaProbe | null,
+  model: string,
+  failure?: { message: string; hint?: string },
+  checking?: boolean,
+): EngineStatus {
+  if (checking) return { level: 'checking', label: '확인 중…' }
+  if (failure) return { level: 'bad', label: '연결 안 됨', detail: failure.message, hint: failure.hint }
+  if (!probe) return { level: 'unknown', label: '미확인', hint: '「다시 확인」을 누르세요' }
+  if (!probe.hasModel) {
+    return {
+      level: 'warn',
+      label: `연결됨 · 모델 없음`,
+      detail: `Ollama ${probe.version} · 받아 둔 모델 ${probe.models.length ? probe.models.join(', ') : '없음'}`,
+      hint: `ollama pull ${model}`,
+    }
+  }
+  if (probe.warm) {
+    return {
+      level: 'ok',
+      label: '연결됨 · 예열됨',
+      detail: `Ollama ${probe.version} · ${model} 이 메모리에 있음`,
+      hint: probe.warmUntil ? `${probe.warmUntil.slice(0, 19).replace('T', ' ')} 까지 유지` : undefined,
+    }
+  }
+  return {
+    level: 'warn',
+    label: '연결됨 · 콜드',
+    detail: `Ollama ${probe.version} · ${model} 은 아직 메모리에 없음`,
+    hint: '첫 답변에서 모델을 올리느라 40초쯤 걸립니다 — 「미리 올려두기」로 지금 올려 둘 수 있습니다',
+  }
+}
+
+/**
+ * 예열 — **빈 프롬프트로 부르면 Ollama 가 모델만 메모리에 올린다.** 토큰을 만들지 않으므로
+ * 답변 품질에 영향이 없고, 콜드 43초를 사용자가 질문을 던지기 *전에* 치르게 옮기는 것이 전부다.
+ *
+ * `keep_alive` 를 길게 준다 — 기본 5분이면 데모 중에 다시 식는다.
+ */
+export async function warmOllama(
+  baseUrl: string,
+  model: string,
+  signal: AbortSignal,
+  keepAlive = '30m',
+): Promise<void> {
+  let res: Response
+  try {
+    res = await fetch(`${baseUrl}/api/generate`, {
+      method: 'POST',
+      signal,
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ model, prompt: '', stream: false, keep_alive: keepAlive }),
+    })
+  } catch (e) {
+    if (signal.aborted) return
+    throw new EngineError(
+      `예열하지 못했다: ${(e as Error).message}`,
+      localEngineWarning(baseUrl) ?? 'Ollama 가 켜져 있는지 확인하세요 (`ollama serve`)',
+    )
+  }
+  if (!res.ok) {
+    const body = await res.text().catch(() => '')
+    throw new EngineError(`예열 실패 ${res.status}`, body.slice(0, 200))
+  }
+  // 본문을 끝까지 읽어야 모델 로딩이 끝난 시점을 안다 (stream:false 라 한 덩어리로 온다)
+  await res.json().catch(() => null)
 }
 async function generateOllama(
   config: EngineConfig,

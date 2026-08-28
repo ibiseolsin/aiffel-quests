@@ -8,6 +8,12 @@
       "port": 4175
     },
     {
+      "name": "m05-dev-5173",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--prefix", "m05-rag-chatbot-service/app", "--", "--port", "5173"],
+      "port": 5173
+    },
+    {
       "name": "m05-dev",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev", "--prefix", "m05-rag-chatbot-service/app", "--", "--port", "5175"],

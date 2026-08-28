@@ -389,3 +389,71 @@
 .preline {
   white-space: pre-line;
 }
+
+/* --- S9: 연결 상태와 콜드 스타트 --- */
+
+/* 색·모양·글자가 같은 말을 한다. 색만으로 「연결됨」과 「미확인」을 가르지 않는다 */
+.conn {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.3rem;
+  font-size: 0.8rem;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  padding: 0.05rem 0.5rem;
+  white-space: nowrap;
+}
+
+.conn-ok {
+  color: #2f7d4f;
+}
+
+.conn-warn {
+  color: #8a5a2b;
+}
+
+.conn-bad {
+  color: #b3261e;
+}
+
+.conn-checking,
+.conn-unknown {
+  color: var(--muted);
+}
+
+@media (prefers-color-scheme: dark) {
+  .conn-ok {
+    color: #7ecb9a;
+  }
+  .conn-warn {
+    color: #d9a86c;
+  }
+  .conn-bad {
+    color: #f2b8b5;
+  }
+}
+
+.conn-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem;
+  margin: 0 0 0.4rem;
+}
+
+.conn-hint {
+  margin: 0 0 0.6rem;
+}
+
+.conn-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0.5rem 0 0.6rem;
+}
+
+.wait {
+  margin-top: 0.9rem;
+  border-top: 1px solid var(--border);
+  padding-top: 0.7rem;
+}

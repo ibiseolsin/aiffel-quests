@@ -192,31 +192,58 @@ ollama serve            # 자동으로 뜨지 않는다
 ollama pull qwen3.5:2b
 ```
 
-`localhost` 에서는 설정 없이 바로 된다 (실측: Ollama 가 `http://localhost:4175` origin 에
-프리플라이트 204 를 준다). **첫 답변은 모델을 올리느라 40초쯤 걸린다** (콜드 43초 실측).
+`localhost` 에서는 설정 없이 바로 된다 (실측: Ollama 가 `http://localhost:4175`·
+`http://localhost:5173` origin 에 프리플라이트 204 를 준다).
 
-#### 배포된 주소에서는 로컬 Ollama 가 막힌다
+**콜드 스타트 — 첫 답변은 모델을 올리느라 오래 걸린다** (디스크에서 처음 읽을 때 43초 실측,
+FINDINGS 1절). 화면이 이걸 셋으로 다룬다:
 
-관문이 **둘**이고, 아래 표는 실측이다:
-
-| origin | Ollama 프리플라이트 |
+| 화면 | 무엇 |
 |---|---|
-| `http://localhost:4175` | 204 (기본 허용) |
-| `https://ibiseolsin.github.io` | **403** |
+| 상태 배지 | `연결됨 · 콜드` / `연결됨 · 예열됨` 을 **항상** 보여 준다. `/api/ps` 로 본다 |
+| 「미리 올려두기 (예열)」 | 빈 프롬프트로 불러 **모델만 올린다** (`done_reason: "load"` 확인). 43초를 질문 전에 치른다 |
+| 대기 진행 표시 | 첫 글자가 오기 전까지 경과 초와 막대(눈금 43초)를 띄운다 |
 
-① **Ollama 의 CORS** — 그 주소를 허용해야 한다:
+> `/api/ps` 는 **로딩 중에는 비어 있다** (실측: 로딩 4초 동안 `[]`, 완료 직후에 나타남).
+> 그래서 「예열됨」은 진짜로 메모리에 있다는 뜻이고, 올리는 중을 예열됨으로 부르지 않는다.
+> 예열은 `keep_alive` 만큼만 유지된다 — **「미리 올려두기」는 30분**으로 걸고, 답변 생성으로
+> 올라간 모델은 **Ollama 기본값(5분)** 이다. 그래서 화면 상태를 20초마다, 그리고 답변이
+> 끝난 직후에 다시 본다.
+>
+> **43초는 상한이 아니라 한 번의 관측이다.** OS 파일 캐시가 살아 있으면 훨씬 짧다 —
+> 같은 기계에서 재예열은 **4~7초**였다 (참고값: 다른 작업이 같이 돌던 중 측정).
+
+#### 배포된 주소에서는 로컬 Ollama 가 막힌다 — 관문 둘, 둘 다 실측
+
+| 검사 | origin | 결과 |
+|---|---|---|
+| Ollama 프리플라이트 | `http://localhost:5173` | 204 + `Access-Control-Allow-Origin` (기본 허용) |
+| Ollama 프리플라이트 | `https://ibiseolsin.github.io` | **403** (`OLLAMA_ORIGINS` 미설정) |
+| Ollama 프리플라이트 | 같은 origin, `OLLAMA_ORIGINS` 설정 후 | **204 + `Access-Control-Allow-Origin: https://ibiseolsin.github.io`** |
+| 브라우저 `fetch` | `https://ibiseolsin.github.io` → `http://127.0.0.1` | **막힘** (`net::ERR_BLOCKED_BY_CLIENT`) — `OLLAMA_ORIGINS` 를 설정한 쪽도 똑같이 막혔다 |
+| 브라우저 `fetch` | `http://localhost:5173` → `http://127.0.0.1:11434` | 200 (앱의 연결 확인이 이 경로로 돈다) |
+
+① **Ollama 의 CORS** — 그 주소를 허용해야 한다. **이 관문은 이걸로 열린다** (위 표 3행):
 
 ```bash
-# Windows PowerShell — 설정 후 Ollama 재시작
+# Windows PowerShell — 설정 후 Ollama 재시작 (setx 는 현재 셸에는 반영되지 않는다)
 setx OLLAMA_ORIGINS "https://ibiseolsin.github.io"
 ```
 
-② **브라우저의 사설망 접근 제한** — 공개 origin(https)에서 loopback(`127.0.0.1`)으로 가는
-요청을 크롬이 따로 막을 수 있다. Ollama 는 `Access-Control-Allow-Private-Network` 헤더를
-보내지 않는다. **①을 고쳐도 ②가 남을 수 있고, 이건 아직 확인되지 않았다.**
+② **브라우저의 사설망 접근 제한 — 이게 남는다.** 공개 origin(https)에서 loopback으로 가는
+요청을 크롬이 따로 막는다. Ollama 는 `Access-Control-Allow-Private-Network` 를 보내지 않고,
+프리플라이트에 `Access-Control-Request-Private-Network: true` 를 붙여 물어봐도 안 보낸다(실측).
+①을 고친 인스턴스도 배포본 origin 에서는 브라우저가 요청 자체를 막았다.
+
+> **정직한 범위** — 브라우저 쪽 차단은 에이전트가 조작하는 크롬에서 관측했고, 오류 코드가
+> 크롬의 사설망 전용 코드가 아니라 `ERR_BLOCKED_BY_CLIENT` 였다. 그래서 "크롬의 사설망 제한"과
+> "자동화 브라우저의 클라이언트 차단"을 완전히 갈라내지는 못했다. 다만 **같은 브라우저에서
+> `http://localhost:5173` origin 은 같은 주소로 붙는다** — origin 에 따라 갈리는 차단이다.
+> 사람이 쓰는 크롬에서 한 번 더 볼 항목으로 남긴다.
 
 그래서 **로컬 엔진은 개발 서버(localhost)에서 쓰는 것이 확실한 길**이고, 배포본에서는
-Gemini 를 쓰는 것이 기본이다. 화면에도 이 안내를 띄우고 「연결 확인」 버튼을 두었다.
+Gemini 를 쓰는 것이 기본이다. 화면은 이 상황을 **요청을 보내기 전에** 알려 준다 —
+배포본에서 Ollama 를 고르면 막힌다는 경고가 먼저 뜨고, 연결 상태 배지가 그 자리에 남는다.
 
 ## 환경 확인 결과 (2026-08-28)
 

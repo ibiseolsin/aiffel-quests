@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import './App.css'
 import { loadCorpus, type Corpus } from './lib/corpus.ts'
 import { embedPassage, embedQuery, loadEmbedder, type LoadProgress } from './lib/embedder.ts'
@@ -10,11 +10,18 @@ import {
   ENGINE_LABEL,
   EngineError,
   generate,
+  geminiStatus,
   localEngineWarning,
   OLLAMA_BASE,
-  pingOllama,
+  OLLAMA_COLD_MS,
+  ollamaStatus,
+  probeOllama,
+  warmOllama,
   type ApiFlavor,
   type EngineKind,
+  type EngineStatus,
+  type OllamaProbe,
+  type StatusLevel,
 } from './lib/engine.ts'
 import {
   describeServiceAccount,
@@ -83,6 +90,54 @@ type Answer = {
 
 type Probe = { cosine: number; ok: boolean } | null
 
+/**
+ * S9 — 연결 상태 배지. **색만으로 말하지 않는다** (색을 못 보는 사람이 있고, 「연결됨」과
+ * 「미확인」의 차이가 이 제품에서는 중요하다). 그래서 모양·글자·색 셋이 같은 말을 한다.
+ */
+const LEVEL_MARK: Record<StatusLevel, string> = {
+  ok: '●',
+  warn: '◐',
+  bad: '○',
+  checking: '◌',
+  unknown: '○',
+}
+
+function StatusBadge({ status }: { status: EngineStatus }) {
+  return (
+    <span className={`conn conn-${status.level}`}>
+      <span aria-hidden="true">{LEVEL_MARK[status.level]}</span>
+      {status.label}
+    </span>
+  )
+}
+
+/**
+ * 마운트된 순간부터 흐르는 경과 시간. **43초의 침묵을 고장으로 읽지 않게 하는 것**이
+ * 유일한 목적이므로 값은 실제로 흘러야 한다 (가짜 진행률을 그리지 않는다).
+ *
+ * 별도 컴포넌트로 뺀 이유: 이 물건은 쓰이는 동안만 살아 있어야 한다. 부모의 상태로
+ * 들고 있으면 다음 대기의 첫 프레임에 지난번 숫자가 잠깐 보이고, 시간 표시에서 그건 거짓이다.
+ */
+function Elapsed({ children }: { children: (ms: number) => React.ReactNode }) {
+  const [ms, setMs] = useState(0)
+  useEffect(() => {
+    const t0 = performance.now()
+    const id = window.setInterval(() => setMs(performance.now() - t0), 200)
+    return () => window.clearInterval(id)
+  }, [])
+  return <>{children(ms)}</>
+}
+
+/** 콜드 스타트 실측값을 눈금으로 쓴 진행 막대. **예상이고 상한이 아니다** */
+function ColdBar({ ms }: { ms: number }) {
+  const ratio = Math.min(ms / OLLAMA_COLD_MS, 1)
+  return (
+    <div className="bar" role="progressbar" aria-valuenow={Math.round(ratio * 100)}>
+      <div className="bar-fill" style={{ width: `${ratio * 100}%` }} />
+    </div>
+  )
+}
+
 export default function App() {
   const [corpus, setCorpus] = useState<Corpus | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -115,9 +170,32 @@ export default function App() {
   const [answer, setAnswer] = useState<Answer | null>(null)
   const [engineError, setEngineError] = useState<{ message: string; hint?: string } | null>(null)
   const abort = useRef<AbortController | null>(null)
-  const [ping, setPing] = useState<string | null>(null)
 
   const [bm25, setBm25] = useState<Bm25Index | null>(null)
+
+  // ── S9: 연결 상태와 콜드 스타트 ───────────────────────────────────────────
+  const [ollamaProbe, setOllamaProbe] = useState<OllamaProbe | null>(null)
+  const [ollamaFail, setOllamaFail] = useState<{ message: string; hint?: string } | null>(null)
+  const [ollamaChecking, setOllamaChecking] = useState(false)
+  const [warming, setWarming] = useState(false)
+  const [warmNote, setWarmNote] = useState<string | null>(null)
+  const warmAbort = useRef<AbortController | null>(null)
+
+  const ollamaModel = ENGINE_DEFAULTS.ollama.model
+
+  const checkOllama = useCallback(async () => {
+    setOllamaChecking(true)
+    const r = await probeOllama(OLLAMA_BASE, ollamaModel)
+    if (r.ok) {
+      setOllamaProbe(r.probe)
+      setOllamaFail(null)
+    } else {
+      setOllamaProbe(null)
+      setOllamaFail({ message: r.message, hint: r.hint })
+    }
+    setOllamaChecking(false)
+  }, [ollamaModel])
+
 
   useEffect(() => {
     loadCorpus().then((c) => {
@@ -261,6 +339,67 @@ export default function App() {
   /** 답변이 흘러오는 중 */
   const busy = !!answer && !answer.done
 
+  /**
+   * 누를 때만 확인하면 「현재 엔진의 연결 상태」가 화면에 없는 시간이 생긴다 (수용 기준 A9).
+   * 그래서 Ollama 를 고르는 순간 확인하고, 그 뒤로도 주기적으로 다시 본다 —
+   * **예열은 시간이 지나면 풀린다**(`keep_alive`). 한 번 본 「예열됨」을 계속 띄우면 거짓이 된다.
+   */
+  useEffect(() => {
+    if (engine !== 'ollama') return
+    // 첫 확인을 0ms 뒤로 미루는 이유는 하나다 — 렌더 도중에 상태를 바꾸지 않는 것
+    const first = window.setTimeout(checkOllama, 0)
+    const id = window.setInterval(() => {
+      if (!document.hidden) checkOllama()
+    }, 20_000)
+    return () => {
+      window.clearTimeout(first)
+      window.clearInterval(id)
+    }
+    // `busy` 가 deps 에 있는 이유: 답변이 끝난 직후 다시 확인해야 한다. 콜드였던 모델이
+    // 방금 올라왔는데 배지가 20초 동안 「콜드」로 남아 있으면 화면이 사실보다 늦다
+  }, [engine, busy, checkOllama])
+
+  /** 첫 글자가 아직 안 온 구간 — 콜드 스타트가 숨어 있는 곳이 정확히 여기다 */
+  const waitingFirst = !!answer && !answer.done && answer.firstTokenMs == null
+
+  /**
+   * Gemini 를 「응답 확인됨」으로 올리는 근거는 **화면에 실제로 도착해 있는 답변**이다.
+   * 지난 성공을 기억해 두지 않는다 — 키를 바꿨거나 쿼터가 끊긴 뒤에도 「확인됨」이 남으면
+   * 그게 바로 이 슬라이스가 없애려던 거짓말이다. 새 질문을 던지면 다시 「미확인」이 된다.
+   */
+  const geminiAnswered =
+    answer?.engine === 'gemini' && !!answer.text && answer.model === geminiModel.trim()
+
+  /** 예열 — 콜드 43초를 질문 *전에* 치른다 */
+  const warmUp = async () => {
+    setWarmNote(null)
+    setWarming(true)
+    const controller = new AbortController()
+    warmAbort.current = controller
+    const t0 = performance.now()
+    try {
+      await warmOllama(OLLAMA_BASE, ollamaModel, controller.signal)
+      setWarmNote(
+        controller.signal.aborted
+          ? '예열을 중단했습니다.'
+          : `모델을 올렸습니다 · ${((performance.now() - t0) / 1000).toFixed(1)}초 걸렸습니다.`,
+      )
+    } catch (e) {
+      const err = e as EngineError
+      setWarmNote(`예열 실패 — ${err.message}${err.hint ? ` (${err.hint})` : ''}`)
+    } finally {
+      setWarming(false)
+      warmAbort.current = null
+      checkOllama()
+    }
+  }
+
+  /** 현재 엔진의 연결 상태. 헤더와 엔진 섹션이 **같은 값**을 본다 */
+  const status: EngineStatus =
+    engine === 'gemini'
+      ? geminiStatus({ flavor, apiKey, serviceAccount, answered: geminiAnswered })
+      : ollamaStatus(ollamaProbe, ollamaModel, ollamaFail ?? undefined, ollamaChecking)
+
   const effective = useMemo(() => {
     if (!corpus) return null
     const dates = corpus.chunks.map((c) => c.effectiveDate).sort()
@@ -277,7 +416,11 @@ export default function App() {
         </p>
 
         <div className="slots">
-          <span className="slot">엔진 — {ENGINE_LABEL[engine]}</span>
+          {/* A9 — 현재 엔진과 그 연결 상태는 **항상** 보여야 한다. 엔진 섹션이 화면
+              밖으로 스크롤돼도 헤더에 남는다 */}
+          <span className="slot">
+            엔진 — {ENGINE_LABEL[engine]} <StatusBadge status={status} />
+          </span>
           {effective && (
             <span className="slot" title="코퍼스에 든 조문의 시행일 범위">
               시행 중 법령 기준 · {effective.from} ~ {effective.to}
@@ -352,6 +495,15 @@ export default function App() {
                 </label>
               ))}
             </div>
+
+            {/* 두 엔진이 같은 자리에서 같은 형식으로 상태를 말한다.
+                **확인하지 않은 것을 「연결됨」이라고 쓰지 않는다** — Gemini 는 부르지 않고
+                확인할 방법이 없으므로 「키 있음(미확인)」에서 멈춘다 */}
+            <p className="conn-line">
+              <StatusBadge status={status} />
+              {status.detail && <span className="muted">{status.detail}</span>}
+            </p>
+            {status.hint && <p className="muted conn-hint">{status.hint}</p>}
 
             {engine === 'gemini' ? (
               <>
@@ -483,24 +635,83 @@ export default function App() {
                   </p>
                 )}
                 <p className="muted">
-                  내 컴퓨터의 Ollama(<code>{OLLAMA_BASE}</code>,{' '}
-                  <code>{ENGINE_DEFAULTS.ollama.model}</code>)를 씁니다. 키가 필요 없지만 Ollama 가
-                  켜져 있어야 합니다(<code>ollama serve</code>).{' '}
-                  <strong>첫 답변은 모델을 올리느라 40초쯤 걸릴 수 있습니다.</strong>
+                  내 컴퓨터의 Ollama(<code>{OLLAMA_BASE}</code>, <code>{ollamaModel}</code>)를
+                  씁니다. 키가 필요 없지만 Ollama 가 켜져 있어야 합니다(<code>ollama serve</code>).{' '}
+                  <strong>
+                    콜드 스타트에서 첫 답변은 모델을 올리느라 40초쯤 걸립니다
+                  </strong>{' '}
+                  (실측 {(OLLAMA_COLD_MS / 1000).toFixed(0)}초). 위 상태가 「예열됨」이면 그
+                  시간이 이미 치러진 것이고, 「콜드」면 다음 첫 질문이 그 시간을 냅니다.
                 </p>
-                <button
-                  className="ghost"
-                  type="button"
-                  onClick={async () => {
-                    setPing('확인 중…')
-                    const r = await pingOllama(OLLAMA_BASE)
-                    setPing(r.ok ? `연결됨 · Ollama ${r.version}` : `${r.message}${r.hint ? ` — ${r.hint}` : ''}`)
-                  }}
-                >
-                  연결 확인
-                </button>
-                {ping && <p className="muted">{ping}</p>}
+                <div className="conn-row">
+                  <button
+                    className="ghost"
+                    type="button"
+                    onClick={checkOllama}
+                    disabled={ollamaChecking}
+                  >
+                    {ollamaChecking ? '확인 중…' : '다시 확인'}
+                  </button>
+                  {/* 예열 — 43초를 질문 전에 치른다. 모델이 없으면 누를 수 없다 (pull 이 먼저) */}
+                  <button
+                    className="ghost"
+                    type="button"
+                    onClick={warmUp}
+                    disabled={warming || busy || !ollamaProbe?.hasModel || ollamaProbe.warm}
+                  >
+                    {warming ? (
+                      <Elapsed>{(ms) => `모델 올리는 중… ${(ms / 1000).toFixed(0)}초`}</Elapsed>
+                    ) : ollamaProbe?.warm ? (
+                      '이미 올라와 있습니다'
+                    ) : (
+                      '미리 올려두기 (예열)'
+                    )}
+                  </button>
+                  {warming && (
+                    <button
+                      className="ghost"
+                      type="button"
+                      onClick={() => warmAbort.current?.abort()}
+                    >
+                      예열 중단
+                    </button>
+                  )}
+                </div>
+                {warming && (
+                  <>
+                    <Elapsed>{(ms) => <ColdBar ms={ms} />}</Elapsed>
+                    <p className="muted">
+                      눈금은 실측 콜드 스타트 {(OLLAMA_COLD_MS / 1000).toFixed(0)}초입니다 —{' '}
+                      <strong>예상이고 상한이 아닙니다.</strong> 다 차도 아직 올리는 중일 수
+                      있습니다.
+                    </p>
+                  </>
+                )}
+                {warmNote && <p className="muted">{warmNote}</p>}
               </>
+            )}
+
+            {/* 콜드 스타트 진행 표시 — 첫 글자가 오기 전 구간에만 뜬다.
+                43초의 침묵을 고장으로 읽지 않게 하는 것이 목적이므로, 경과 시간은
+                **실제로 흐르는 값**이어야 한다 (가짜 진행률을 그리지 않는다) */}
+            {waitingFirst && answer && (
+              <div className="wait">
+                <Elapsed>
+                  {(ms) => (
+                    <>
+                      <p className="muted">
+                        {ENGINE_LABEL[answer.engine]} 에 물었고{' '}
+                        <strong>첫 글자를 기다립니다</strong> · {(ms / 1000).toFixed(1)}초 경과
+                        {answer.engine === 'ollama' &&
+                          (ollamaProbe?.warm
+                            ? ' · 모델은 이미 메모리에 있습니다'
+                            : ' · 모델을 메모리에 올리는 중일 수 있습니다')}
+                      </p>
+                      {answer.engine === 'ollama' && !ollamaProbe?.warm && <ColdBar ms={ms} />}
+                    </>
+                  )}
+                </Elapsed>
+              </div>
             )}
           </section>
         )}
