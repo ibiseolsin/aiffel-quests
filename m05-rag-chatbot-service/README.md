@@ -82,8 +82,8 @@ PRD에 **최소한** 다음 다섯 가지가 들어가야 한다. PRD를 먼저 
 - [ ] 구글폼에 **GitHub 저장소 URL** 제출 — https://forms.gle/1BMsytrwzN5uscNA6
 - [ ] 구글폼에 **실제 접속 가능한 배포 URL** 제출
 
-> **[결정 필요]** 저장소 URL을 뭘로 낼지. 이 리포는 모노레포라 `aiffel-quests/tree/main/m05-...`
-> 를 내거나, m05만 별도 리포로 분리해야 한다. 배포 슬라이스 전까지는 결정을 미뤄도 된다.
+> 저장소: **https://github.com/ibiseolsin/aiffel-quests** (public, 모노리포 — D7 확정)
+> 배포는 Actions 가 이 폴더만 빌드해 Pages `/m05/` 로 올린다.
 
 ## 확장 (평가 5번 "새로운 시도")
 
