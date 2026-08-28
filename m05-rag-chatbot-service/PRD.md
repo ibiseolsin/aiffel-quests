@@ -1,6 +1,6 @@
 # PRD — Claude Code 문서 안내 챗봇
 
-> Main Quest 3 제출용. 요구 항목은 [README](README.md) 참고.
+> Main Quest 3 제출용. 요구 항목은 [README](README.md), 구현 전 실측은 [FINDINGS](FINDINGS.md) 참고.
 > 작성 2026-08-28 / 상태: 초안 (사람 검토 전)
 >
 > **`[결정 필요]`** 는 판단 근거가 아직 없어 비워 둔 칸이다. 임의로 채우지 않는다.
@@ -256,5 +256,7 @@ Anthropic API 일반 사용자(도메인 밖).
 | D3 | A2·A3 통과선 (3/3 인지 2/3 인지) | 실험 전 측정 후 |
 | D4 | 루브릭 목표값 4개 | 실험 전 측정 후 |
 | D5 | API 선택 엔진 종류와 키 입력 방식 | 확장 슬라이스 |
+| D8 | 판정 필드명을 긍정형으로 바꾼 것 확정 (`hallucinated` 등) | **정해짐** → [FINDINGS](FINDINGS.md#2-판정llm-as-a-judge--2b-모델의-json-신뢰도) |
+| D9 | 콜드 로딩 43초를 예열로 감출지 진행률로 보일지 | PLAN 작성 시 |
 | D6 | 모바일 반응형을 MVP에 넣을지 | PLAN 작성 시 |
 | D7 | 제출용 GitHub 저장소 형태 (모노레포 / 분리) | 배포 슬라이스 |
