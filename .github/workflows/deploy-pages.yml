@@ -1,0 +1,76 @@
+name: Deploy quests to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'm05-rag-chatbot-service/app/**'
+      - '.github/workflows/deploy-pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: m05-rag-chatbot-service/app/package-lock.json
+
+      - name: Install (m05)
+        working-directory: m05-rag-chatbot-service/app
+        run: npm ci
+
+      - name: Build (m05)
+        working-directory: m05-rag-chatbot-service/app
+        run: npm run build
+
+      - name: Collect into site tree
+        run: |
+          mkdir -p _site/m05
+          cp -r m05-rag-chatbot-service/app/dist/. _site/m05/
+          cat > _site/index.html <<'HTML'
+          <!doctype html>
+          <html lang="ko"><head><meta charset="utf-8">
+          <meta name="viewport" content="width=device-width,initial-scale=1">
+          <title>aiffel-quests</title>
+          <style>
+            body{font-family:system-ui,'Malgun Gothic',sans-serif;max-width:34rem;
+                 margin:4rem auto;padding:0 1.25rem;line-height:1.7}
+            a{color:#7a5a2e}
+          </style></head>
+          <body>
+            <h1>aiffel-quests</h1>
+            <p>아이펠 AI 에이전트 과정 퀘스트 배포본.</p>
+            <ul>
+              <li><a href="./m05/">m05 — 식품 표시·광고 규정 안내 챗봇</a></li>
+            </ul>
+            <p><a href="https://github.com/ibiseolsin/aiffel-quests">저장소</a></p>
+          </body></html>
+          HTML
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
