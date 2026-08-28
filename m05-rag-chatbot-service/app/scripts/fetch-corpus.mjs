@@ -52,25 +52,133 @@ const urlName = (name) => String(name ?? '').replace(/\s+/g, '')
  * 검색은 걸려도 "어느 문장이 근거인가"를 사용자가 짚을 수 없다 — 이 제품의 존재 이유가
  * 근거 확인이므로 긴 청크는 그 자체로 결함이다.
  *
+ * 반대 방향의 결함도 같이 막아야 한다. 계층 끝까지 쪼개면 "아) 용기ㆍ포장 재질" 처럼
+ * 11자 조각이 나오는데, 이건 검색에도 걸리지 않고 걸려도 답의 근거가 되지 못한다.
+ * 그래서 세 가지를 지킨다:
+ *
+ *   1. 머리말(첫 마커 앞의 글)은 각 조각에 맥락으로 붙이되 **다시 쪼개지 않는다.**
+ *      붙인 뒤 재귀하면 머리말 자신이 다음 계층의 마커로 잘려 나간다.
+ *   2. 형제 조각은 MIN_CHARS 에 닿을 때까지 **묶는다.** 목록 항목들은 원래 같이 읽는 글이다.
+ *   3. 마커는 앞이 공백이나 `)` 일 때만 인정한다. `[가-하]\)` 를 그냥 쓰면
+ *      「열량 표시 제외)」의 "외)" 가 마커로 잡혀 단어가 두 동막이 난다.
+ *
  * 자를 수 없으면 자르지 않고 그대로 둔다. 억지로 글자 수로 끊으면 문장이 반토막 난다.
  */
-const MARKERS = [
-  /(?=(?<![제항호조])\d+\.\s)/,
-  /(?=[가-하]\.\s)/,
-  /(?=\d+\)\s?)/,
-  /(?=[가-하]\)\s?)/,
-  /(?=\(\d+\)\s?)/,
+/**
+ * 마커 판별은 **공백이 아니라 순번**으로 한다.
+ *
+ * 고시 원문은 마커가 앞 단어에 붙어서 온다 — `식품가.` `떡류1)` `제품명나)`.
+ * 그래서 "앞이 공백일 때만 마커"로 잡으면 정작 진짜 계층을 통째로 놓친다.
+ * 반대로 조건을 풀면 「열량 표시 제외)」의 `외)` 가 마커가 되어 단어가 두 동막이 난다.
+ *
+ * 실제 구분자는 **목록이 1부터 순서대로 오른다**는 것이다. `외` 는 순번 글자가 아니고,
+ * 날짜 「2025. 8. 29.」의 `8.` 은 1 로 시작하지 않는다. 그래서 순번이 기대값과 맞는
+ * 마커만 인정한다. 이건 계층 혼동도 같이 막아 준다 — 항목 2 안에 든 `1)` 은
+ * 그 계층의 기대값(3)과 다르므로 형제로 오인되지 않는다.
+ * 여는 괄호는 배제해야 한다 — `(3)` 안의 `3)` 이 형제로 잡히면 위치 표기가 한 칸 틀린다.
+ */
+const KO_ORD = [
+  ...'가나다라마바사아자차카타파하',
+  ...'거너더러머버서어저처커터퍼허',
+  ...'고노도로모보소오조초코토포호',
 ]
-const MAX_CHARS = 1200
+const koOrd = (ch) => KO_ORD.indexOf(ch) + 1 // 순번 글자가 아니면 0
 
-function splitLong(text, depth = 0) {
-  if (text.length <= MAX_CHARS || depth >= MARKERS.length) return [text]
-  const parts = text.split(MARKERS[depth]).filter((p) => p.trim())
-  if (parts.length <= 1) return splitLong(text, depth + 1)
-  // 앞머리(첫 조각)는 뒤 조각들의 맥락이므로 각 조각에 붙여 준다
-  const [stem, ...rest] = parts
-  if (!rest.length) return splitLong(text, depth + 1)
-  return rest.flatMap((r) => splitLong(`${stem.trim()} ${r.trim()}`, depth + 1))
+const LEVELS = [
+  { re: /(?<![제항호조\d])(\d+)\.\s/g, ord: (m) => Number(m[1]) },
+  { re: /([가-힣])\.\s/g, ord: (m) => koOrd(m[1]) },
+  { re: /(?<!\()(\d+)\)\s?/g, ord: (m) => Number(m[1]) },
+  { re: /(?<!\()([가-힣])\)\s?/g, ord: (m) => koOrd(m[1]) },
+  { re: /\((\d+)\)\s?/g, ord: (m) => Number(m[1]) },
+]
+
+/** 이 계층에서 1 부터 순서대로 오르는 마커의 위치만 돌려준다 */
+function markerCuts(text, level) {
+  const cuts = []
+  let expect = 1
+  for (const m of text.matchAll(level.re)) {
+    if (level.ord(m) !== expect) continue
+    cuts.push(m.index)
+    expect += 1
+  }
+  return cuts
+}
+
+const MAX_CHARS = 1200
+const MIN_CHARS = 250 // 이보다 짧은 조각은 형제와 붙인다
+const HEAD_MAX = 300 // 이보다 긴 머리말은 맥락이 아니라 그 자체로 하나의 청크다
+
+/** 마커 계층 하나로 자른다. 항목이 둘 미만이면 나눌 의미가 없으므로 null */
+function cutAt(text, level) {
+  const at = markerCuts(text, level)
+  if (at.length < 2) return null
+  const items = []
+  for (let i = 0; i < at.length; i++) items.push(text.slice(at[i], at[i + 1]).trim())
+  return { head: text.slice(0, at[0]).trim(), items: items.filter(Boolean) }
+}
+
+/** 연속 조각을 MIN_CHARS 이상 budget 이하로 묶는다 */
+function pack(items, budget) {
+  const out = []
+  for (const it of items) {
+    const last = out.at(-1)
+    if (last && last.length < MIN_CHARS && last.length + 1 + it.length <= budget) {
+      out[out.length - 1] = `${last} ${it}`
+    } else {
+      out.push(it)
+    }
+  }
+  // 꼬리 조각이 홀로 남으면 앞 묶음에 붙인다
+  if (out.length > 1 && out.at(-1).length < MIN_CHARS) {
+    const tail = out.pop()
+    if (out.at(-1).length + 1 + tail.length <= budget) out[out.length - 1] += ` ${tail}`
+    else out.push(tail)
+  }
+  return out
+}
+
+function splitLong(text, prefix = '', depth = 0) {
+  const glue = (s) => (prefix ? `${prefix} ${s}` : s)
+  if (glue(text).length <= MAX_CHARS) return [glue(text)]
+
+  for (let d = depth; d < LEVELS.length; d++) {
+    const cut = cutAt(text, LEVELS[d])
+    if (!cut) continue
+
+    // 짧은 머리말은 모든 조각이 물고 간다. 긴 머리말은 따로 떼어 그것도 재귀로 자른다
+    const short = cut.head && cut.head.length <= HEAD_MAX
+    const carry = short ? glue(cut.head) : prefix
+    const lead = cut.head && !short ? splitLong(cut.head, prefix, d + 1) : []
+
+    const budget = MAX_CHARS - (carry ? carry.length + 1 : 0)
+    if (budget < MIN_CHARS) continue // 머리말이 너무 커서 이 계층으로는 못 나눈다
+
+    const groups = pack(cut.items, budget)
+    if (groups.length < 2 && !lead.length) continue
+
+    return [
+      ...lead,
+      ...groups.flatMap((g) =>
+        g.length > budget ? splitLong(g, carry, d + 1) : [carry ? `${carry} ${g}` : g],
+      ),
+    ]
+  }
+
+  // 계층으로 못 자를 때의 마지막 수단 — **문장 경계**로 묶는다.
+  // 글자 수로 끊지는 않는다. 반토막 난 문장은 근거로 쓸 수 없기 때문이다.
+  // 한국어 법령문은 거의 모두 「…다.」로 끝나므로 이 하나로 문장이 갈린다.
+  const sents = text
+    .split(/(?<=다\.)\s*/)
+    .map((x) => x.trim())
+    .filter(Boolean)
+  if (sents.length > 1) {
+    const budget = MAX_CHARS - (prefix ? prefix.length + 1 : 0)
+    if (budget >= MIN_CHARS) {
+      const groups = pack(sents, budget)
+      if (groups.length > 1) return groups.map((g) => (prefix ? `${prefix} ${g}` : g))
+    }
+  }
+  return [glue(text)]
 }
 
 async function fetchJson(base, params) {
@@ -264,16 +372,61 @@ function chunksFromLaw(json, meta) {
  * 칩은 장식이 아니라 사용자가 원문에서 그 자리를 찾아가는 경로다 (PRD 5절 규칙 2).
  * 그래서 청크 본문 맨 앞의 계층 표기를 그대로 읽어 위치로 쓴다.
  */
+const PATH_MAX = 44
+const HEADING_MAX = 30 // 이보다 긴 조각은 제목이 아니라 본문이다
+
+/** 계층 표기와 그 깊이. `(3)` 안의 `3)` 과 「제2조」의 숫자는 표기가 아니다 */
+const SECTION_LEVELS = [
+  { d: 0, re: /[ⅠⅡⅢⅣⅤⅥⅦⅧⅨⅩ]\.\s?/g },
+  { d: 1, re: /(?<![제항호조\d])\d+\.\s/g },
+  { d: 2, re: /(?<!\()[가-힣]\.\s/g },
+  { d: 3, re: /(?<!\()\d+\)\s?/g },
+  { d: 4, re: /(?<!\()[가-힣]\)\s?/g },
+  { d: 5, re: /\(\d+\)\s?/g },
+]
+
+/**
+ * 청크가 고시 본문의 어디인지를 **계층 표기에서 읽어** 위치로 쓴다.
+ * 고시는 조 번호가 없고 구조 없는 문자열로 오기 때문에 다른 단서가 없다.
+ *
+ * 규칙은 하나다 — **애매해지는 깊이에서 멈춘다.** 어떤 깊이의 표기가 청크 안에 둘 이상
+ * 있으면 그 청크는 그 계층의 형제 여럿에 걸쳐 있다는 뜻이므로, 그중 하나를 위치로 적으면
+ * 거짓이 된다. 그 위 계층까지가 이 청크에 대해 참인 가장 깊은 위치다.
+ *
+ * 형제를 남기고 조상을 접으면 안 된다. 「나) 식품유형 다) 영업소… 마)」 같은 것은
+ * 위치가 아니라 목록의 일부다. 못 읽거나 줄여도 안 맞으면 「본문」으로 남긴다 —
+ * 없는 위치를 지어내지 않는 것이 이 함수의 유일한 목적이다.
+ */
 function sectionPath(text, fallback) {
-  // 앞 80자 안의 계층 표기를 모두 찾아, 마지막 표기까지를 위치로 쓴다.
-  // 하나의 큰 정규식으로 잡으려 하면 「총 칙」처럼 라벨에 공백이 든 경우에 끊긴다.
-  const head = String(text).slice(0, 80)
-  const marker = /[ⅠⅡⅢⅣⅤⅥⅦⅧⅨⅩ]\.|(?:^|\s)\d+\.|(?:^|\s)[가-하]\.|(?:^|\s)\d+\)|(?:^|\s)[가-하]\)|\(\d+\)/g
-  let lastEnd = 0
-  for (const m of head.matchAll(marker)) lastEnd = m.index + m[0].length
-  if (!lastEnd) return fallback
-  const path = squash(head.slice(0, lastEnd))
-  return path.length <= 44 ? path : fallback
+  const t = squash(String(text))
+  const hits = []
+  for (const lv of SECTION_LEVELS) {
+    for (const m of t.matchAll(lv.re)) hits.push({ i: m.index, d: lv.d, len: m[0].length })
+  }
+  if (!hits.length) return fallback
+  hits.sort((a, b) => a.i - b.i || a.d - b.d)
+
+  const seen = new Map()
+  for (const h of hits) seen.set(h.d, (seen.get(h.d) ?? 0) + 1)
+
+  const segs = []
+  for (const lv of SECTION_LEVELS) {
+    const n = seen.get(lv.d) ?? 0
+    if (n === 0) continue // 이 계층을 쓰지 않는 고시도 있다
+    if (n > 1) break // 형제 여럿에 걸쳐 있다 — 여기부터는 단정할 수 없다
+    const k = hits.findIndex((h) => h.d === lv.d)
+    const stop = hits[k + 1]?.i ?? t.length
+    const seg = squash(t.slice(hits[k].i, stop))
+    // 라벨이 길면 본문이 이어진 것이다. 번호만 남긴다
+    segs.push(seg.length <= HEADING_MAX ? seg : squash(t.slice(hits[k].i, hits[k].i + hits[k].len)))
+  }
+
+  // 길면 위쪽 조상을 조각째로 접는다. 남는 것은 항상 실제 사슬의 뒷부분이다
+  let keep = segs
+  while (keep.length > 1 && keep.join(' ').length > PATH_MAX) keep = keep.slice(1)
+  const path = keep.join(' ')
+  if (!path || path.length > PATH_MAX) return fallback
+  return keep.length < segs.length ? `… ${path}` : path
 }
 
 function chunksFromAdmRul(json, meta) {
