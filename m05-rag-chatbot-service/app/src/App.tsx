@@ -5,6 +5,7 @@ import { embedPassage, embedQuery, loadEmbedder, type LoadProgress } from './lib
 import { buildBm25, type Bm25Index } from './lib/bm25.ts'
 import {
   API_FLAVOR_LABEL,
+  DEFAULT_LOCATION,
   ENGINE_DEFAULTS,
   ENGINE_LABEL,
   EngineError,
@@ -15,6 +16,11 @@ import {
   type ApiFlavor,
   type EngineKind,
 } from './lib/engine.ts'
+import {
+  describeServiceAccount,
+  parseServiceAccount,
+  type ServiceAccount,
+} from './lib/google-auth.ts'
 import { buildPrompt, extractCitations } from './lib/prompt.ts'
 import {
   cosine,
@@ -57,9 +63,11 @@ const mb = (n: number) => `${(n / 1024 / 1024).toFixed(0)}MB`
 
 /** 키를 이 브라우저에 남길지는 사용자가 정한다. 기본은 남기지 않는다 */
 const KEY_STORE = 'm05.geminiKey'
-/** 창구·모델은 민감하지 않으므로 그냥 기억한다 — 매번 다시 고르게 할 이유가 없다 */
+/** 창구·모델·리전은 민감하지 않으므로 그냥 기억한다 — 매번 다시 고르게 할 이유가 없다.
+ *  **서비스 계정 JSON 은 저장하지 않는다** — 개인키가 들어 있다 (google-auth.ts 주석) */
 const FLAVOR_STORE = 'm05.apiFlavor'
 const MODEL_STORE = 'm05.geminiModel'
+const LOCATION_STORE = 'm05.vertexLocation'
 
 type Answer = {
   text: string
@@ -98,6 +106,12 @@ export default function App() {
   const [geminiModel, setGeminiModel] = useState(
     () => localStorage.getItem(MODEL_STORE) || ENGINE_DEFAULTS.gemini.model,
   )
+  const [location_, setLocation] = useState(
+    () => localStorage.getItem(LOCATION_STORE) || DEFAULT_LOCATION,
+  )
+  // 새로고침하면 사라진다. 개인키를 브라우저 저장소에 남기지 않기 위해 일부러 그렇게 둔다
+  const [serviceAccount, setServiceAccount] = useState<ServiceAccount | null>(null)
+  const [saError, setSaError] = useState<string | null>(null)
   const [answer, setAnswer] = useState<Answer | null>(null)
   const [engineError, setEngineError] = useState<{ message: string; hint?: string } | null>(null)
   const abort = useRef<AbortController | null>(null)
@@ -175,7 +189,14 @@ export default function App() {
 
     const config =
       engine === 'gemini'
-        ? { ...ENGINE_DEFAULTS.gemini, apiKey, flavor, model: geminiModel.trim() }
+        ? {
+            ...ENGINE_DEFAULTS.gemini,
+            apiKey,
+            flavor,
+            model: geminiModel.trim(),
+            serviceAccount: serviceAccount ?? undefined,
+            location: location_,
+          }
         : { ...ENGINE_DEFAULTS.ollama }
 
     abort.current?.abort()
@@ -335,7 +356,7 @@ export default function App() {
             {engine === 'gemini' ? (
               <>
                 <div className="engine-pick">
-                  {(['vertex', 'studio'] as ApiFlavor[]).map((f) => (
+                  {(['vertex-sa', 'vertex', 'studio'] as ApiFlavor[]).map((f) => (
                     <label key={f} className={flavor === f ? 'on' : ''}>
                       <input
                         type="radio"
@@ -350,21 +371,65 @@ export default function App() {
                     </label>
                   ))}
                 </div>
-                <input
-                  className="key"
-                  type="password"
-                  value={apiKey}
-                  onChange={(e) => {
-                    setApiKey(e.target.value)
-                    if (rememberKey) localStorage.setItem(KEY_STORE, e.target.value)
-                  }}
-                  placeholder={
-                    flavor === 'vertex'
-                      ? 'Vertex AI API 키 (Google Cloud 콘솔)'
-                      : 'AI Studio API 키 (aistudio.google.com)'
-                  }
-                  aria-label="Gemini API 키"
-                />
+
+                {flavor === 'vertex-sa' ? (
+                  <>
+                    <input
+                      className="key"
+                      type="file"
+                      accept="application/json,.json"
+                      aria-label="서비스 계정 JSON 파일"
+                      onChange={async (e) => {
+                        const file = e.target.files?.[0]
+                        setSaError(null)
+                        setServiceAccount(null)
+                        if (!file) return
+                        try {
+                          setServiceAccount(parseServiceAccount(await file.text()))
+                        } catch (err) {
+                          setSaError((err as Error).message)
+                        }
+                      }}
+                    />
+                    {serviceAccount && (
+                      <p className="muted">
+                        읽었습니다 — <strong>{describeServiceAccount(serviceAccount)}</strong>
+                      </p>
+                    )}
+                    {saError && (
+                      <p className="disclaimer" role="note">
+                        {saError}
+                      </p>
+                    )}
+                    <input
+                      className="key"
+                      value={location_}
+                      onChange={(e) => {
+                        setLocation(e.target.value)
+                        localStorage.setItem(LOCATION_STORE, e.target.value)
+                      }}
+                      placeholder={`리전 (기본 ${DEFAULT_LOCATION})`}
+                      aria-label="리전"
+                    />
+                  </>
+                ) : (
+                  <input
+                    className="key"
+                    type="password"
+                    value={apiKey}
+                    onChange={(e) => {
+                      setApiKey(e.target.value)
+                      if (rememberKey) localStorage.setItem(KEY_STORE, e.target.value)
+                    }}
+                    placeholder={
+                      flavor === 'vertex'
+                        ? 'Vertex AI API 키 (익스프레스 모드)'
+                        : 'AI Studio API 키 (aistudio.google.com)'
+                    }
+                    aria-label="Gemini API 키"
+                  />
+                )}
+
                 <input
                   className="key"
                   value={geminiModel}
@@ -375,20 +440,35 @@ export default function App() {
                   placeholder="모델 ID"
                   aria-label="모델 ID"
                 />
-                <label className="remember">
-                  <input
-                    type="checkbox"
-                    checked={rememberKey}
-                    onChange={(e) => applyRemember(e.target.checked)}
-                  />
-                  이 브라우저에 키를 저장 (이 기기에만 남고 서버로 가지 않습니다)
-                </label>
+                {flavor !== 'vertex-sa' && (
+                  <label className="remember">
+                    <input
+                      type="checkbox"
+                      checked={rememberKey}
+                      onChange={(e) => applyRemember(e.target.checked)}
+                    />
+                    이 브라우저에 키를 저장 (이 기기에만 남고 서버로 가지 않습니다)
+                  </label>
+                )}
                 <p className="muted">
-                  키는 브라우저에서 Google 로 <strong>직접</strong> 갑니다 — 헤더로 보내므로
-                  주소에 남지 않습니다. 이 사이트에는 서버가 없어 키를 받아 둘 곳도 없습니다.
+                  자격증명은 브라우저에서 Google 로 <strong>직접</strong> 갑니다. 이 사이트에는
+                  서버가 없어 받아 둘 곳도 없습니다.
                   <br />
-                  <strong>모델 ID 를 바꿀 수 있게 둔 이유:</strong> 모델 이름은 자주 바뀌고,
-                  이름이 틀리면 오류 본문이 아래에 그대로 표시됩니다.
+                  {flavor === 'vertex-sa' ? (
+                    <>
+                      <strong>서비스 계정 JSON 은 저장하지 않습니다</strong> — 개인키가 들어 있어서
+                      새로고침하면 다시 골라야 합니다. 참고로 서비스 계정은 원래 서버 쪽
+                      자격증명이고 보통 API 키보다 권한이 넓습니다. 이 페이지를 남에게 공유할
+                      계획이라면 <strong>API 키 창구를 쓰는 쪽이 맞습니다.</strong>
+                    </>
+                  ) : (
+                    <>
+                      키는 헤더로 보내므로 주소에 남지 않습니다.
+                    </>
+                  )}
+                  <br />
+                  <strong>모델 ID 를 바꿀 수 있게 둔 이유:</strong> 모델 이름은 자주 바뀌고, 이름이
+                  틀리면 오류 본문이 아래에 그대로 표시됩니다.
                 </p>
               </>
             ) : (

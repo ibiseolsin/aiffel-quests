@@ -150,9 +150,30 @@ node scripts/ask.mjs "질문" [top-k]            # 파이프라인 전체 (검�
 
 ### 엔진 준비
 
-**Gemini (기본)** — [aistudio.google.com](https://aistudio.google.com) 에서 키를 발급받아
-화면에 입력한다. 키는 브라우저에서 Google 로 직접 가고, 이 저장소와 배포본에는 들어가지 않는다
-(정적 배포에 키를 넣으면 공개된다).
+**Gemini (기본)** — 창구가 셋이고 화면에서 고른다. 어느 쪽이든 자격증명은 브라우저에서
+Google 로 직접 가며, 이 저장소와 배포본에는 들어가지 않는다 (정적 배포에 넣으면 공개된다).
+
+| 창구 | 넣는 것 | 인증 |
+|---|---|---|
+| **Vertex AI 서비스 계정 JSON** | JSON 파일을 고른다 | 개인키로 JWT 서명 → 액세스 토큰 |
+| Vertex AI 키 (익스프레스) | API 키 | `x-goog-api-key` 헤더 |
+| AI Studio 키 | API 키 | `x-goog-api-key` 헤더 |
+
+모델 ID 와 리전도 화면에서 바꾼다. 모델 이름은 자주 바뀌고, 이름 하나 때문에 코드를 고치는
+것은 낭비다. 실패하면 **구글 응답 본문을 그대로** 보여 준다 — 「키를 확인하세요」만 띄우면
+모델명·권한·창구 중 무엇이 문제인지 알 수 없다.
+
+> **서비스 계정 JSON 에 대해 알고 쓸 것.** 파일 안에 **개인키**가 들어 있고 보통 API 키보다
+> 권한이 넓다. 그래서 이 앱은 그 내용을 **브라우저 저장소에 남기지 않는다** — 메모리에만 두고
+> 새로고침하면 다시 골라야 한다. 서비스 계정은 원래 서버 쪽 자격증명이므로, **이 페이지를 남에게
+> 공유할 계획이라면 API 키 창구를 쓰는 쪽이 맞다.**
+
+브라우저를 거치지 않고 확인하려면 스크립트를 쓴다 (CORS 와 무관한 경로):
+
+```bash
+GOOGLE_APPLICATION_CREDENTIALS=/path/to/sa.json node scripts/ask.mjs "질문"
+VERTEX_LOCATION=us-central1 GEMINI_MODEL=gemini-2.5-flash   GOOGLE_APPLICATION_CREDENTIALS=/path/to/sa.json node scripts/ask.mjs "질문"
+```
 
 **Ollama (로컬)** — 키가 필요 없지만 설치와 실행이 필요하다.
 

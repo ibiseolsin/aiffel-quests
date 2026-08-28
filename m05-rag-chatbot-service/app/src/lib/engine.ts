@@ -8,6 +8,8 @@
  * 사용자는 자기가 어느 엔진의 답을 읽고 있는지 모른다.
  */
 
+import { describeServiceAccount, getAccessToken, type ServiceAccount } from './google-auth.ts'
+
 export type EngineKind = 'gemini' | 'ollama'
 
 /**
@@ -19,12 +21,19 @@ export type EngineKind = 'gemini' | 'ollama'
  * 응답 형식은 같아서(`candidates[0].content.parts`) 파서는 한 벌로 쓴다.
  * 어느 쪽이든 키는 **헤더**로 보낸다 — 쿼리스트링에 넣으면 주소창·로그·리퍼러에 남는다.
  */
-export type ApiFlavor = 'studio' | 'vertex'
+export type ApiFlavor = 'studio' | 'vertex' | 'vertex-sa'
 
 export const API_FLAVOR_LABEL: Record<ApiFlavor, string> = {
-  vertex: 'Vertex AI 키',
+  'vertex-sa': 'Vertex AI 서비스 계정 JSON',
+  vertex: 'Vertex AI 키 (익스프레스)',
   studio: 'AI Studio 키',
 }
+
+/**
+ * Vertex 표준 경로의 리전. 서비스 계정으로 부를 때 필요하다.
+ * `global` 이 기본이고, 리전을 지정하면 호스트도 그 리전으로 바뀐다.
+ */
+export const DEFAULT_LOCATION = 'global'
 
 export type EngineConfig = {
   kind: EngineKind
@@ -32,6 +41,10 @@ export type EngineConfig = {
   apiKey?: string
   /** Gemini 만 쓴다 */
   flavor?: ApiFlavor
+  /** `vertex-sa` 만 쓴다. **개인키가 들어 있으므로 저장하지 않는다** */
+  serviceAccount?: ServiceAccount
+  /** `vertex-sa` 만 쓴다 */
+  location?: string
   /** Ollama 만 쓴다 */
   baseUrl?: string
   model: string
@@ -44,7 +57,7 @@ export const ENGINE_DEFAULTS: Record<EngineKind, EngineConfig> = {
   // 정적 배포에는 키를 넣을 수 없다(공개된다). 방문자가 자기 키를 화면에서 넣는다.
   // 모델 ID 는 화면에서 바꿀 수 있게 두었다 — 모델 이름은 자주 바뀌고,
   // 틀린 이름 하나 때문에 코드를 고쳐야 하는 것은 사용자 쪽 낭비다
-  gemini: { kind: 'gemini', flavor: 'vertex', model: 'gemini-3.7-flash' },
+  gemini: { kind: 'gemini', flavor: 'vertex-sa', model: 'gemini-3.7-flash' },
   // 콜드 스타트 43초를 측정해 두었다 (FINDINGS 1절) — 첫 답변이 늦은 것은 고장이 아니다
   ollama: { kind: 'ollama', baseUrl: OLLAMA_BASE, model: 'qwen3.5:2b' },
 }
@@ -118,20 +131,44 @@ async function generateGemini(
   onToken: OnToken,
   signal: AbortSignal,
 ): Promise<void> {
-  if (!config.apiKey) throw new EngineError('API 키가 없다', '화면에서 Gemini API 키를 입력하세요')
+  // 창구마다 경로와 인증이 다르다
+  const flavor = config.flavor ?? 'vertex-sa'
+  const headers: Record<string, string> = { 'content-type': 'application/json' }
+  let url: string
+  let who: string
 
-  // 창구마다 경로가 다르다. Vertex 익스프레스 모드는 프로젝트·리전을 경로에 넣지 않는다
-  const url =
-    (config.flavor ?? 'vertex') === 'vertex'
-      ? `https://aiplatform.googleapis.com/v1/publishers/google/models/${config.model}:streamGenerateContent?alt=sse`
-      : `https://generativelanguage.googleapis.com/v1beta/models/${config.model}:streamGenerateContent?alt=sse`
+  if (flavor === 'vertex-sa') {
+    const sa = config.serviceAccount
+    if (!sa) throw new EngineError('서비스 계정 JSON 이 없다', '화면에서 JSON 파일을 고르세요')
+    const loc = config.location?.trim() || DEFAULT_LOCATION
+    // 리전을 지정하면 호스트도 그 리전으로 간다. global 은 리전 없는 호스트를 쓴다
+    const host = loc === 'global' ? 'aiplatform.googleapis.com' : `${loc}-aiplatform.googleapis.com`
+    url = `https://${host}/v1/projects/${sa.project_id}/locations/${loc}/publishers/google/models/${config.model}:streamGenerateContent?alt=sse`
+    let token: string
+    try {
+      token = await getAccessToken(sa, signal)
+    } catch (e) {
+      if (signal.aborted) return
+      throw new EngineError(`액세스 토큰을 받지 못했다: ${(e as Error).message}`)
+    }
+    headers.authorization = `Bearer ${token}`
+    who = `${API_FLAVOR_LABEL[flavor]} · ${describeServiceAccount(sa)} · ${loc}`
+  } else {
+    if (!config.apiKey) throw new EngineError('API 키가 없다', '화면에서 API 키를 입력하세요')
+    headers['x-goog-api-key'] = config.apiKey
+    url =
+      flavor === 'vertex'
+        ? `https://aiplatform.googleapis.com/v1/publishers/google/models/${config.model}:streamGenerateContent?alt=sse`
+        : `https://generativelanguage.googleapis.com/v1beta/models/${config.model}:streamGenerateContent?alt=sse`
+    who = API_FLAVOR_LABEL[flavor]
+  }
 
   let res: Response
   try {
     res = await fetch(url, {
       method: 'POST',
       signal,
-      headers: { 'content-type': 'application/json', 'x-goog-api-key': config.apiKey },
+      headers,
       body: JSON.stringify({
         contents: [{ role: 'user', parts: [{ text: prompt }] }],
         generationConfig: { temperature: 0.2 },
@@ -147,7 +184,7 @@ async function generateGemini(
     // 오류 본문을 그대로 보여 준다. 「키를 확인하세요」만 띄우면 실제 원인
     // (모델 이름이 틀렸다 · 그 프로젝트에 권한이 없다 · 키 종류가 다르다)을 알 수 없다
     throw new EngineError(
-      `Gemini 오류 ${res.status} (${API_FLAVOR_LABEL[config.flavor ?? 'vertex']}, ${config.model})`,
+      `Gemini 오류 ${res.status} (${who}, ${config.model})`,
       body.slice(0, 400) || '응답 본문이 비어 있다',
     )
   }

@@ -5,7 +5,13 @@
  * 브라우저에서 손으로 9문항을 돌리면 조건을 고정할 수 없다.
  *
  * 실행: node scripts/ask.mjs "질문" [top-k]
- *   엔진: 기본 Ollama. Gemini 는 GEMINI_API_KEY 환경변수가 있으면 그것을 쓴다
+ * 엔진 고르는 법 (위에서부터 먼저 잡히는 것을 쓴다):
+ *   GOOGLE_APPLICATION_CREDENTIALS=<서비스계정.json>  → Vertex (서비스 계정)
+ *   GEMINI_API_KEY=<키>                              → Gemini (AI Studio 창구)
+ *   아무것도 없으면                                    → 로컬 Ollama
+ *
+ * 리전은 VERTEX_LOCATION 으로 바꾼다 (기본 global).
+ * **브라우저 CORS 와 무관한 경로**라서, 화면에서 막히는지 여부와 별개로 여기서 검증할 수 있다.
  */
 import { readFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
@@ -15,7 +21,8 @@ import { MODELS } from './embed-models.mjs'
 import { buildBm25 } from '../src/lib/bm25.ts'
 import { hybridSearch, limitFamilies } from '../src/lib/search.ts'
 import { buildPrompt, extractCitations } from '../src/lib/prompt.ts'
-import { ENGINE_DEFAULTS, generate } from '../src/lib/engine.ts'
+import { DEFAULT_LOCATION, ENGINE_DEFAULTS, generate } from '../src/lib/engine.ts'
+import { parseServiceAccount } from '../src/lib/google-auth.ts'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const CORPUS = resolve(HERE, '../public/corpus')
