@@ -1,0 +1,30 @@
+# 의존성
+node_modules/
+.pnp/
+.pnp.js
+
+# 빌드 산출물
+dist/
+build/
+.vite/
+*.tsbuildinfo
+
+# 비밀
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# 모델·캐시 (브라우저 임베딩 모델 등 큰 바이너리는 커밋하지 않는다)
+.cache/
+models/
+*.onnx
+*.gguf
+
+# OS · 에디터
+.DS_Store
+Thumbs.db
+*.log
+.idea/
+.vscode/*
+!.vscode/extensions.json
