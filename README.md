@@ -9,7 +9,7 @@
 
 | 모듈 | 과제 | 상태 | 배포 |
 |---|---|---|---|
-| [m05](m05-rag-chatbot-service/) | Main Quest 3 — 내 도메인에서 더 잘 대답해주는 RAG 챗봇 | 도메인 결정 중 | — |
+| [m05](m05-rag-chatbot-service/) | Main Quest 3 — Claude Code 문서 안내 RAG 챗봇 | PRD 확정, 계획 중 | — |
 
 ## 새 퀘스트 시작하기
 
