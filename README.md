@@ -9,7 +9,7 @@
 
 | 모듈 | 과제 | 상태 | 배포 |
 |---|---|---|---|
-| [m05](m05-rag-chatbot-service/) | Main Quest 3 — Claude Code 문서 안내 RAG 챗봇 | PRD 확정, 계획 중 | — |
+| [m05](m05-rag-chatbot-service/) | Main Quest 3 — 식품 표시·광고 규정 안내 RAG 챗봇 | PRD·PLAN 확정, S1 대기 | — |
 
 ## 새 퀘스트 시작하기
 
