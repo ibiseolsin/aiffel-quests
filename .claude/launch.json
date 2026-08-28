@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "m05-preview",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "preview", "--prefix", "m05-rag-chatbot-service/app", "--", "--port", "4175"],
+      "port": 4175
+    },
+    {
+      "name": "m05-dev",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev", "--prefix", "m05-rag-chatbot-service/app", "--", "--port", "5175"],
+      "port": 5175
+    }
+  ]
+}

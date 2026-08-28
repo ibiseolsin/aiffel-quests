@@ -105,3 +105,162 @@
 .footer a {
   color: var(--accent);
 }
+
+/* --- S3: 검색 UI --- */
+
+.notice.error {
+  border-color: var(--warn-border);
+  background: var(--warn-bg);
+  color: var(--warn-text);
+}
+
+.primary {
+  margin-top: 0.9rem;
+  font: inherit;
+  font-weight: 600;
+  color: var(--bg);
+  background: var(--accent);
+  border: none;
+  border-radius: 8px;
+  padding: 0.55rem 1.1rem;
+  cursor: pointer;
+}
+
+.primary:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.bar {
+  margin-top: 1rem;
+  height: 8px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.bar-fill {
+  height: 100%;
+  background: var(--accent);
+  transition: width 0.2s;
+}
+
+.ask {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.ask input {
+  flex: 1 1 18rem;
+  font: inherit;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.55rem 0.8rem;
+}
+
+.ask .primary {
+  margin-top: 0;
+}
+
+.examples {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin: 0.7rem 0 0.9rem;
+}
+
+.chip {
+  font: inherit;
+  font-size: 0.8rem;
+  color: var(--muted);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.25rem 0.7rem;
+  cursor: pointer;
+  text-align: left;
+}
+
+.chip:hover {
+  color: var(--text);
+  border-color: var(--accent);
+}
+
+.hits {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.8rem;
+}
+
+.hits > li {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.8rem 0.95rem;
+}
+
+.hit-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.score {
+  font-family: ui-monospace, 'Cascadia Code', Consolas, monospace;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.kind {
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0 0.35rem;
+}
+
+.src {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.hit-text {
+  margin: 0.5rem 0;
+  font-size: 0.92rem;
+  white-space: pre-wrap;
+}
+
+.hit-foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.8rem;
+  font-size: 0.8rem;
+}
+
+.hit-foot a {
+  color: var(--accent);
+}
+
+.ok {
+  color: #2f7d4f;
+}
+
+.bad {
+  color: #b3261e;
+}
+
+@media (prefers-color-scheme: dark) {
+  .ok {
+    color: #7ecb9a;
+  }
+  .bad {
+    color: #f2b8b5;
+  }
+}

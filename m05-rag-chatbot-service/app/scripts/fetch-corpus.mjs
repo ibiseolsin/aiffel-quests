@@ -375,14 +375,18 @@ function chunksFromLaw(json, meta) {
 const PATH_MAX = 44
 const HEADING_MAX = 30 // 이보다 긴 조각은 제목이 아니라 본문이다
 
-/** 계층 표기와 그 깊이. `(3)` 안의 `3)` 과 「제2조」의 숫자는 표기가 아니다 */
+/**
+ * 계층 표기와 그 깊이. `(3)` 안의 `3)` 과 「제2조」의 숫자는 표기가 아니다.
+ * 한글 표기는 **순번 글자만** 인정한다 — 그러지 않으면 「…하여야 함.」의 `함.` 이
+ * 표기로 잡혀 위치가 「함.」 으로 나온다.
+ */
 const SECTION_LEVELS = [
-  { d: 0, re: /[ⅠⅡⅢⅣⅤⅥⅦⅧⅨⅩ]\.\s?/g },
-  { d: 1, re: /(?<![제항호조\d])\d+\.\s/g },
-  { d: 2, re: /(?<!\()[가-힣]\.\s/g },
-  { d: 3, re: /(?<!\()\d+\)\s?/g },
-  { d: 4, re: /(?<!\()[가-힣]\)\s?/g },
-  { d: 5, re: /\(\d+\)\s?/g },
+  { d: 0, re: /[ⅠⅡⅢⅣⅤⅥⅦⅧⅨⅩ]\.\s?/g, ok: () => true },
+  { d: 1, re: /(?<![제항호조\d])\d+\.\s/g, ok: () => true },
+  { d: 2, re: /(?<!\()([가-힣])\.\s/g, ok: (m) => koOrd(m[1]) > 0 },
+  { d: 3, re: /(?<!\()\d+\)\s?/g, ok: () => true },
+  { d: 4, re: /(?<!\()([가-힣])\)\s?/g, ok: (m) => koOrd(m[1]) > 0 },
+  { d: 5, re: /\(\d+\)\s?/g, ok: () => true },
 ]
 
 /**
@@ -401,7 +405,10 @@ function sectionPath(text, fallback) {
   const t = squash(String(text))
   const hits = []
   for (const lv of SECTION_LEVELS) {
-    for (const m of t.matchAll(lv.re)) hits.push({ i: m.index, d: lv.d, len: m[0].length })
+    for (const m of t.matchAll(lv.re)) {
+      if (!lv.ok(m)) continue
+      hits.push({ i: m.index, d: lv.d, len: m[0].length })
+    }
   }
   if (!hits.length) return fallback
   hits.sort((a, b) => a.i - b.i || a.d - b.d)
@@ -463,9 +470,6 @@ function chunksFromAdmRul(json, meta) {
 
     const head = body.match(/^(제\d+조(?:의\d+)?)\s*(?:\(([^)]*)\))?/)
     const artLabel = head?.[1] ?? '본문'
-    const artTitle = head?.[2] ?? ''
-    const prefix = artTitle ? `${artLabel}(${artTitle})` : artLabel
-
     // 첫 호 앞까지가 조의 앞머리(stem)
     const firstItem = body.search(/(?<!제)\d+\.\s/)
     if (firstItem < 0) {

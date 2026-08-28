@@ -1,0 +1,17 @@
+{
+  "modelKey": "e5-small",
+  "modelId": "Xenova/multilingual-e5-small",
+  "dtype": "q8",
+  "approxMB": 120,
+  "dim": 384,
+  "count": 365,
+  "pooling": "mean",
+  "normalized": true,
+  "queryPrefix": "query: ",
+  "passagePrefix": "passage: ",
+  "probe": {
+    "index": 182,
+    "id": "LBL-001"
+  },
+  "builtAt": "2026-08-28"
+}
