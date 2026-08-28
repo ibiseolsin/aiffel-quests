@@ -116,15 +116,58 @@ async function* lines(res: Response, signal: AbortSignal): AsyncGenerator<string
 }
 
 /**
- * Gemini — 브라우저에서 직접 호출한다 (`x-goog-api-key` 헤더, PLAN 결정 D5).
+ * Gemini — 브라우저에서 직접 호출한다 (`x-goog-api-key` 헤더 또는 `Bearer` 토큰, PLAN 결정 D5).
  *
- * **이 경로는 아직 실행 확인되지 않았다.**
- * - AI Studio 창구는 브라우저 직접 호출 CORS 를 실측으로 확인했다
- * - **Vertex 창구의 CORS 는 확인하지 못했다.** 막히면 오류 본문이 화면에 그대로 뜬다
- * - 모델 이름이 실제로 있는지도 확인하지 못했다 — 그래서 화면에서 바꿀 수 있게 두었다
+ * ## CORS 는 세 창구 모두 뚫려 있다 (2026-08-29 실측, origin `https://ibiseolsin.github.io`)
+ *
+ * 배포본 콘솔에서 **일부러 틀린 자격증명**으로 불러 봤다. CORS 가 막히면 브라우저가
+ * 응답을 읽기 전에 `TypeError` 를 던지므로, **HTTP 상태와 본문이 읽혔다는 것 자체가
+ * CORS 통과의 증거**다. 넷 다 본문이 읽혔다:
+ *
+ * | 호스트 | 상태 | 본문 |
+ * |---|---|---|
+ * | `oauth2.googleapis.com/token` | 400 | `invalid_request` |
+ * | `generativelanguage.googleapis.com` (AI Studio) | 400 | `API key not valid` |
+ * | `aiplatform.googleapis.com` + `Bearer` (서비스 계정) | 401 | `invalid authentication credentials` |
+ * | `aiplatform.googleapis.com` + API 키 (익스프레스) | 401 | **`API keys are not supported by this API`** |
+ *
+ * ## 그래서 갈린 것: 익스프레스 키 창구는 다른 셋과 실패 이유가 다르다
+ *
+ * 앞의 셋은 **「이 자격증명이 틀렸다」** 고 답한다 — 맞는 것을 넣으면 통과한다는 뜻이다.
+ * 익스프레스 키만 **「이 API 는 API 키를 안 받는다」** 고 답하는데, 이건 키의 유효성이
+ * 아니라 **엔드포인트의 성질**에 대한 말이다. 헤더·쿼리스트링, 스트리밍·비스트리밍
+ * 네 조합 모두 같은 401 이었다.
+ *
+ * 그래도 창구를 지우지 않았다 — 익스프레스 모드로 **발급된** 키는 이 호스트에
+ * 등록돼 있어서 다르게 갈릴 수 있고, 그건 그런 키가 있어야 확인된다.
+ * 대신 이 401 이 뜨면 무엇을 봐야 하는지 화면에서 짚어 준다.
+ *
+ * **아직 확인되지 않은 것**: 유효한 자격증명으로 실제 답변이 오는가, 그리고 모델 이름이
+ * 실재하는가. 401·400 은 모델 이름을 보기 전에 나온다 — 그래서 이름을 화면에서 바꿀 수 있게 두었다.
  *
  * Ollama 경로로 프롬프트·스트리밍·취소·인용을 검증했고, 여기는 같은 파서를 쓴다.
  */
+/**
+ * 자주 갈리는 실패에만 한 줄을 앞에 붙인다. **본문은 늘 그대로 이어 붙인다** —
+ * 우리가 알아본 실패에 대한 설명이 원문을 가리면, 알아보지 못한 실패에서 단서가 사라진다.
+ */
+function explainGeminiError(flavor: ApiFlavor, body: string): string {
+  if (body.includes('API keys are not supported by this API')) {
+    return (
+      '이 호스트(aiplatform.googleapis.com)는 API 키를 받지 않는다고 답했습니다. ' +
+      '틀린 키가 아니라 키라는 방식 자체를 거절한 것입니다 — 익스프레스 모드로 발급한 키가 ' +
+      '아니라면 「AI Studio 키」 창구를 쓰거나 「Vertex AI 서비스 계정 JSON」 으로 바꾸세요.\n\n'
+    )
+  }
+  if (flavor === 'studio' && body.includes('API key not valid')) {
+    return 'AI Studio 가 키를 인식하지 못했습니다. aistudio.google.com 에서 발급한 키가 맞는지 확인하세요.\n\n'
+  }
+  if (body.includes('was not found') || body.includes('is not found')) {
+    return '모델 ID 를 찾지 못했습니다. 아래 모델 ID 칸을 바꿔 보세요 — 창구마다 쓸 수 있는 이름이 다릅니다.\n\n'
+  }
+  return ''
+}
+
 async function generateGemini(
   config: EngineConfig,
   prompt: string,
@@ -185,7 +228,7 @@ async function generateGemini(
     // (모델 이름이 틀렸다 · 그 프로젝트에 권한이 없다 · 키 종류가 다르다)을 알 수 없다
     throw new EngineError(
       `Gemini 오류 ${res.status} (${who}, ${config.model})`,
-      body.slice(0, 400) || '응답 본문이 비어 있다',
+      `${explainGeminiError(flavor, body)}${body.slice(0, 400) || '응답 본문이 비어 있다'}`,
     )
   }
 

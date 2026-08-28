@@ -562,7 +562,9 @@ export default function App() {
           <section className="notice error">
             <h2>답변을 만들지 못했습니다</h2>
             <p>{engineError.message}</p>
-            {engineError.hint && <p className="muted">{engineError.hint}</p>}
+            {/* 오류 본문은 여러 줄짜리 JSON 이고, 앞에 붙는 설명과도 줄로 갈린다.
+                한 덩어리로 뭉개면 원인을 짚어 주려던 것이 오히려 읽기 어려워진다 */}
+            {engineError.hint && <p className="muted preline">{engineError.hint}</p>}
             <p className="muted">
               근거 검색은 그대로 동작합니다 — 아래 조문 목록은 엔진 없이 찾은 것입니다.
               <strong> 다른 엔진으로 조용히 넘어가지 않습니다.</strong>

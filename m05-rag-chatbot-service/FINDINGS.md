@@ -462,3 +462,73 @@ curl -s "https://www.law.go.kr/DRF/lawService.do?OC=test&target=admrul&type=JSON
 curl -s "https://www.law.go.kr/DRF/lawService.do?OC=test&target=admrul&type=JSON&ID=2100000279014"   | python -c "import sys,json;b=json.load(sys.stdin)['AdmRulService']['행정규칙기본정보'];print(b['발령일자'], b['시행일자'], b['제개정구분명'])"
 # → 20260512 20280101 일부개정
 ```
+
+## 8. Gemini 창구 — 브라우저에서 어디까지 되는가 (2026-08-29 실측, S5)
+
+「브라우저에서 직접 부른다」(D5)의 전제가 CORS 다. 막히면 응답을 읽기도 전에 실패하므로,
+**자격증명이 없어도 이것만은 먼저 확인할 수 있다** — 일부러 틀린 자격증명으로 부르고,
+**상태 코드와 본문이 읽혔는지**를 본다. 읽혔다면 CORS 는 통과한 것이다 (막혔다면 브라우저가
+`TypeError` 를 던지고 상태 코드조차 주지 않는다).
+
+배포본 콘솔에서 실행했다 — origin `https://ibiseolsin.github.io`.
+
+| 호스트 / 인증 | CORS | 상태 | 본문 |
+|---|---|---|---|
+| `oauth2.googleapis.com/token` (JWT 교환) | **통과** | 400 | `invalid_request` |
+| `generativelanguage.googleapis.com` + API 키 (AI Studio) | **통과** | 400 | `API key not valid` |
+| `aiplatform.googleapis.com` + `Bearer` (서비스 계정) | **통과** | 401 | `invalid authentication credentials` |
+| `aiplatform.googleapis.com` + API 키 (익스프레스) | **통과** | 401 | **`API keys are not supported by this API`** |
+
+**CORS 는 넷 다 뚫려 있다.** S5 에 「Vertex 창구의 CORS 는 확인하지 못했다」로 남아 있던
+미확인 항목이 닫혔다. 서비스 계정 경로도 토큰 교환(`oauth2`)과 호출(`aiplatform`) 두 단계가
+모두 브라우저에서 열린다.
+
+### 그런데 익스프레스 키만 실패 이유가 다르다 ★
+
+앞의 셋은 **「이 자격증명이 틀렸다」** 고 답한다 — 맞는 것을 넣으면 통과한다는 뜻이다.
+익스프레스 키만 **「이 API 는 API 키를 안 받는다」** 고 답하는데, 이건 키의 유효성이 아니라
+**엔드포인트의 성질**에 대한 말이다. 네 조합을 다 해 봤고 전부 같은 401 이었다:
+
+| 조합 | 결과 |
+|---|---|
+| `x-goog-api-key` 헤더 + `:streamGenerateContent` | 401 `API keys are not supported` |
+| `?key=` 쿼리스트링 + `:generateContent` | 401 (같음) |
+| 헤더 + `:generateContent` (비스트리밍) | 401 (같음) |
+| 리전 경로 없이 `/v1/publishers/...` | 401 (같음) |
+
+**그래도 창구를 지우지 않았다.** 익스프레스 모드로 *발급된* 키는 이 호스트에 등록돼 있어
+다르게 갈릴 수 있고, 그건 그런 키가 있어야 확인된다. 없는 것을 없다고 단정하는 대신,
+이 401 이 뜨면 화면에서 무엇을 봐야 하는지 짚어 주기로 했다.
+
+### 그래서 오류 화면을 고쳤다
+
+자주 갈리는 실패 셋에만 한 줄을 앞에 붙인다. **본문은 늘 그대로 이어 붙인다** — 알아본
+실패의 설명이 원문을 가리면, 알아보지 못한 실패에서 단서가 사라진다. 오류 본문은 여러 줄짜리
+JSON 이라 `white-space: pre-line` 도 같이 넣었다 (한 줄로 뭉개지면 읽을 수 없다).
+
+로컬에서 실행 확인 — 틀린 키로 두 창구를 눌러 봤다:
+
+- 익스프레스 → `Gemini 오류 401 (Vertex AI 키 (익스프레스), gemini-2.5-flash)`
+  + 「키라는 방식 자체를 거절한 것입니다」 + 원문 JSON
+- AI Studio → `Gemini 오류 400 (AI Studio 키, ...)`
+  + 「aistudio.google.com 에서 발급한 키가 맞는지」 + 원문 JSON
+
+둘 다 **근거 8개는 그대로 화면에 남았다** (질의 임베딩+검색 23ms). 엔진이 죽어도 검색은 산다.
+
+### 아직 확인되지 않은 것
+
+**유효한 자격증명으로 실제 답변이 오는가.** 401·400 은 모델 이름을 보기 전에 나오므로
+모델 ID 가 실재하는지도 아직 모른다 — 그래서 화면에서 바꿀 수 있게 두었다.
+이건 사용자의 키로만 닫힌다.
+
+### 재현
+
+배포본(또는 로컬 preview)의 콘솔에서:
+
+```js
+// CORS 가 막히면 여기서 TypeError 가 난다. 상태 코드가 나오면 통과한 것이다
+const r = await fetch('https://aiplatform.googleapis.com/v1/publishers/google/models/gemini-2.5-flash:generateContent',
+  { method: 'POST', headers: { 'content-type': 'application/json', 'x-goog-api-key': 'bogus' },
+    body: JSON.stringify({ contents: [{ role: 'user', parts: [{ text: 'hi' }] }] }) })
+console.log(r.status, (await r.text()).slice(0, 200))
+```

@@ -384,3 +384,8 @@
     visibility: hidden;
   }
 }
+
+/* 서버가 그대로 돌려준 오류 본문 — 줄바꿈이 의미를 갖는다 */
+.preline {
+  white-space: pre-line;
+}
