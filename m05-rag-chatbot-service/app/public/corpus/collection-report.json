@@ -1,0 +1,137 @@
+{
+  "collectedAt": "2026-08-28",
+  "oc": "test (본인 OC 미설정)",
+  "sources": [
+    {
+      "code": "FLA",
+      "kind": "법률",
+      "name": "식품 등의 표시ㆍ광고에 관한 법률",
+      "effectiveDate": "2025-09-19",
+      "inForce": true,
+      "chunks": 64,
+      "futureArticles": [],
+      "futureTables": [],
+      "pendingEffective": [
+        "2026-11-27"
+      ]
+    },
+    {
+      "code": "FLD",
+      "kind": "시행령",
+      "name": "식품 등의 표시ㆍ광고에 관한 법률 시행령",
+      "effectiveDate": "2025-09-19",
+      "inForce": true,
+      "chunks": 20,
+      "futureArticles": [],
+      "futureTables": [],
+      "pendingEffective": null
+    },
+    {
+      "code": "FLR",
+      "kind": "시행규칙",
+      "name": "식품 등의 표시ㆍ광고에 관한 법률 시행규칙",
+      "effectiveDate": "2026-01-01",
+      "inForce": true,
+      "chunks": 80,
+      "futureArticles": [],
+      "futureTables": [],
+      "pendingEffective": null
+    },
+    {
+      "code": "UNF",
+      "kind": "고시",
+      "name": "식품등의 부당한 표시 또는 광고의 내용 기준",
+      "effectiveDate": "2025-12-04",
+      "promulgated": "2025-12-04",
+      "inForce": true,
+      "chunks": 35,
+      "tables": 2,
+      "tableChars": 4897,
+      "pickedSeq": "2100000269428",
+      "versionCount": 5,
+      "apiCurrentSeq": "2100000269428",
+      "pendingAmendment": null
+    },
+    {
+      "code": "LBL",
+      "kind": "고시",
+      "name": "식품등의 표시기준",
+      "effectiveDate": "2025-08-29",
+      "promulgated": "2025-08-29",
+      "inForce": true,
+      "chunks": 278,
+      "tables": 14,
+      "tableChars": 88625,
+      "pickedSeq": "2100000263558",
+      "versionCount": 45,
+      "apiCurrentSeq": "2100000279014",
+      "pendingAmendment": {
+        "seq": "2100000279014",
+        "effective": "2028-01-01"
+      }
+    },
+    {
+      "code": "ALG",
+      "kind": "고시",
+      "name": "어린이 기호식품 등의 알레르기 유발 식품 표시기준 및 방법",
+      "effectiveDate": "2019-10-28",
+      "promulgated": "2019-10-28",
+      "inForce": true,
+      "chunks": 11,
+      "tables": 0,
+      "tableChars": 0,
+      "pickedSeq": "2100000183534",
+      "versionCount": 3,
+      "apiCurrentSeq": "2100000183534",
+      "pendingAmendment": null
+    },
+    {
+      "code": "NUT",
+      "kind": "고시",
+      "name": "어린이 기호식품 등의 영양성분과 고카페인 함유 식품 표시기준 및 방법에 관한 규정",
+      "effectiveDate": "2023-12-15",
+      "promulgated": "2023-12-15",
+      "inForce": true,
+      "chunks": 9,
+      "tables": 3,
+      "tableChars": 4416,
+      "pickedSeq": "2100000232800",
+      "versionCount": 12,
+      "apiCurrentSeq": "2100000232800",
+      "pendingAmendment": null
+    },
+    {
+      "code": "GMO",
+      "kind": "고시",
+      "name": "유전자변형식품등의 표시기준",
+      "effectiveDate": "2019-10-28",
+      "promulgated": "2019-10-28",
+      "inForce": true,
+      "chunks": 24,
+      "tables": 0,
+      "tableChars": 0,
+      "pickedSeq": "2100000183336",
+      "versionCount": 5,
+      "apiCurrentSeq": "2100000282012",
+      "pendingAmendment": {
+        "seq": "2100000282012",
+        "effective": "2026-12-31"
+      }
+    },
+    {
+      "code": "REV",
+      "kind": "고시",
+      "name": "식품등의 표시 또는 광고 심의 및 이의신청 기준",
+      "effectiveDate": "2019-03-22",
+      "promulgated": "2019-03-22",
+      "inForce": true,
+      "chunks": 13,
+      "tables": 3,
+      "tableChars": 3243,
+      "pickedSeq": "2100000176998",
+      "versionCount": 1,
+      "apiCurrentSeq": "2100000176998",
+      "pendingAmendment": null
+    }
+  ]
+}

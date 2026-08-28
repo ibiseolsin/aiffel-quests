@@ -22,3 +22,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# 수집 산출물 — 스크립트로 재생성한다. 다만 벡터스토어는 정적 배포에 필요하므로 커밋한다
+# (public/corpus/chunks.json 은 커밋 대상)
