@@ -10,18 +10,38 @@
 
 export type EngineKind = 'gemini' | 'ollama'
 
+/**
+ * 같은 Gemini 모델을 부르는 두 가지 창구. **키 종류가 다르므로 둘을 갈라야 한다.**
+ *
+ * - `studio`: AI Studio 키 → `generativelanguage.googleapis.com`
+ * - `vertex`: Vertex AI 키(익스프레스 모드) → `aiplatform.googleapis.com`
+ *
+ * 응답 형식은 같아서(`candidates[0].content.parts`) 파서는 한 벌로 쓴다.
+ * 어느 쪽이든 키는 **헤더**로 보낸다 — 쿼리스트링에 넣으면 주소창·로그·리퍼러에 남는다.
+ */
+export type ApiFlavor = 'studio' | 'vertex'
+
+export const API_FLAVOR_LABEL: Record<ApiFlavor, string> = {
+  vertex: 'Vertex AI 키',
+  studio: 'AI Studio 키',
+}
+
 export type EngineConfig = {
   kind: EngineKind
   /** Gemini 만 쓴다. **브라우저 안에만 있고 저장소·배포본에 들어가지 않는다** */
   apiKey?: string
+  /** Gemini 만 쓴다 */
+  flavor?: ApiFlavor
   /** Ollama 만 쓴다 */
   baseUrl?: string
   model: string
 }
 
 export const ENGINE_DEFAULTS: Record<EngineKind, EngineConfig> = {
-  // 정적 배포에는 키를 넣을 수 없다(공개된다). 방문자가 자기 키를 화면에서 넣는다
-  gemini: { kind: 'gemini', model: 'gemini-2.5-flash' },
+  // 정적 배포에는 키를 넣을 수 없다(공개된다). 방문자가 자기 키를 화면에서 넣는다.
+  // 모델 ID 는 화면에서 바꿀 수 있게 두었다 — 모델 이름은 자주 바뀌고,
+  // 틀린 이름 하나 때문에 코드를 고쳐야 하는 것은 사용자 쪽 낭비다
+  gemini: { kind: 'gemini', flavor: 'vertex', model: 'gemini-3.7-flash' },
   // 콜드 스타트 43초를 측정해 두었다 (FINDINGS 1절) — 첫 답변이 늦은 것은 고장이 아니다
   ollama: { kind: 'ollama', baseUrl: 'http://127.0.0.1:11434', model: 'qwen3.5:2b' },
 }
@@ -80,11 +100,14 @@ async function* lines(res: Response, signal: AbortSignal): AsyncGenerator<string
 }
 
 /**
- * Gemini — 브라우저에서 직접 호출한다. CORS 가 임의 origin 을 허용하는 것을
- * 실측으로 확인했다 (`x-goog-api-key` 헤더 사용, PLAN 결정 D5).
+ * Gemini — 브라우저에서 직접 호출한다 (`x-goog-api-key` 헤더, PLAN 결정 D5).
  *
- * **이 경로는 아직 실행 확인되지 않았다** — 키가 없으면 확인할 수 없기 때문이다.
- * Ollama 경로로 프롬프트·스트리밍·취소·인용을 검증했고, 여기는 같은 코드를 쓴다.
+ * **이 경로는 아직 실행 확인되지 않았다.**
+ * - AI Studio 창구는 브라우저 직접 호출 CORS 를 실측으로 확인했다
+ * - **Vertex 창구의 CORS 는 확인하지 못했다.** 막히면 오류 본문이 화면에 그대로 뜬다
+ * - 모델 이름이 실제로 있는지도 확인하지 못했다 — 그래서 화면에서 바꿀 수 있게 두었다
+ *
+ * Ollama 경로로 프롬프트·스트리밍·취소·인용을 검증했고, 여기는 같은 파서를 쓴다.
  */
 async function generateGemini(
   config: EngineConfig,
@@ -94,7 +117,12 @@ async function generateGemini(
 ): Promise<void> {
   if (!config.apiKey) throw new EngineError('API 키가 없다', '화면에서 Gemini API 키를 입력하세요')
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${config.model}:streamGenerateContent?alt=sse`
+  // 창구마다 경로가 다르다. Vertex 익스프레스 모드는 프로젝트·리전을 경로에 넣지 않는다
+  const url =
+    (config.flavor ?? 'vertex') === 'vertex'
+      ? `https://aiplatform.googleapis.com/v1/publishers/google/models/${config.model}:streamGenerateContent?alt=sse`
+      : `https://generativelanguage.googleapis.com/v1beta/models/${config.model}:streamGenerateContent?alt=sse`
+
   let res: Response
   try {
     res = await fetch(url, {
@@ -113,11 +141,11 @@ async function generateGemini(
 
   if (!res.ok) {
     const body = await res.text().catch(() => '')
+    // 오류 본문을 그대로 보여 준다. 「키를 확인하세요」만 띄우면 실제 원인
+    // (모델 이름이 틀렸다 · 그 프로젝트에 권한이 없다 · 키 종류가 다르다)을 알 수 없다
     throw new EngineError(
-      `Gemini 오류 ${res.status}`,
-      res.status === 400 || res.status === 403
-        ? '키가 올바른지, 그 키로 이 모델을 쓸 수 있는지 확인하세요'
-        : body.slice(0, 200),
+      `Gemini 오류 ${res.status} (${API_FLAVOR_LABEL[config.flavor ?? 'vertex']}, ${config.model})`,
+      body.slice(0, 400) || '응답 본문이 비어 있다',
     )
   }
 

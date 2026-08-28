@@ -4,10 +4,12 @@ import { loadCorpus, type Corpus } from './lib/corpus.ts'
 import { embedPassage, embedQuery, loadEmbedder, type LoadProgress } from './lib/embedder.ts'
 import { buildBm25, type Bm25Index } from './lib/bm25.ts'
 import {
+  API_FLAVOR_LABEL,
   ENGINE_DEFAULTS,
   ENGINE_LABEL,
   EngineError,
   generate,
+  type ApiFlavor,
   type EngineKind,
 } from './lib/engine.ts'
 import { buildPrompt, extractCitations } from './lib/prompt.ts'
@@ -52,6 +54,9 @@ const mb = (n: number) => `${(n / 1024 / 1024).toFixed(0)}MB`
 
 /** 키를 이 브라우저에 남길지는 사용자가 정한다. 기본은 남기지 않는다 */
 const KEY_STORE = 'm05.geminiKey'
+/** 창구·모델은 민감하지 않으므로 그냥 기억한다 — 매번 다시 고르게 할 이유가 없다 */
+const FLAVOR_STORE = 'm05.apiFlavor'
+const MODEL_STORE = 'm05.geminiModel'
 
 type Answer = {
   text: string
@@ -84,6 +89,12 @@ export default function App() {
   const [engine, setEngine] = useState<EngineKind>('gemini')
   const [apiKey, setApiKey] = useState(() => localStorage.getItem(KEY_STORE) ?? '')
   const [rememberKey, setRememberKey] = useState(() => !!localStorage.getItem(KEY_STORE))
+  const [flavor, setFlavor] = useState<ApiFlavor>(
+    () => (localStorage.getItem(FLAVOR_STORE) as ApiFlavor) || ENGINE_DEFAULTS.gemini.flavor!,
+  )
+  const [geminiModel, setGeminiModel] = useState(
+    () => localStorage.getItem(MODEL_STORE) || ENGINE_DEFAULTS.gemini.model,
+  )
   const [answer, setAnswer] = useState<Answer | null>(null)
   const [engineError, setEngineError] = useState<{ message: string; hint?: string } | null>(null)
   const abort = useRef<AbortController | null>(null)
@@ -158,10 +169,10 @@ export default function App() {
       now: new Date(),
     })
 
-    const config = {
-      ...ENGINE_DEFAULTS[engine],
-      ...(engine === 'gemini' ? { apiKey } : {}),
-    }
+    const config =
+      engine === 'gemini'
+        ? { ...ENGINE_DEFAULTS.gemini, apiKey, flavor, model: geminiModel.trim() }
+        : { ...ENGINE_DEFAULTS.ollama }
 
     abort.current?.abort()
     const controller = new AbortController()
@@ -319,6 +330,22 @@ export default function App() {
 
             {engine === 'gemini' ? (
               <>
+                <div className="engine-pick">
+                  {(['vertex', 'studio'] as ApiFlavor[]).map((f) => (
+                    <label key={f} className={flavor === f ? 'on' : ''}>
+                      <input
+                        type="radio"
+                        name="flavor"
+                        checked={flavor === f}
+                        onChange={() => {
+                          setFlavor(f)
+                          localStorage.setItem(FLAVOR_STORE, f)
+                        }}
+                      />
+                      {API_FLAVOR_LABEL[f]}
+                    </label>
+                  ))}
+                </div>
                 <input
                   className="key"
                   type="password"
@@ -327,8 +354,22 @@ export default function App() {
                     setApiKey(e.target.value)
                     if (rememberKey) localStorage.setItem(KEY_STORE, e.target.value)
                   }}
-                  placeholder="Gemini API 키 (aistudio.google.com 에서 발급)"
+                  placeholder={
+                    flavor === 'vertex'
+                      ? 'Vertex AI API 키 (Google Cloud 콘솔)'
+                      : 'AI Studio API 키 (aistudio.google.com)'
+                  }
                   aria-label="Gemini API 키"
+                />
+                <input
+                  className="key"
+                  value={geminiModel}
+                  onChange={(e) => {
+                    setGeminiModel(e.target.value)
+                    localStorage.setItem(MODEL_STORE, e.target.value)
+                  }}
+                  placeholder="모델 ID"
+                  aria-label="모델 ID"
                 />
                 <label className="remember">
                   <input
@@ -339,8 +380,11 @@ export default function App() {
                   이 브라우저에 키를 저장 (이 기기에만 남고 서버로 가지 않습니다)
                 </label>
                 <p className="muted">
-                  키는 브라우저에서 Google 로 <strong>직접</strong> 갑니다. 이 사이트에는 서버가
-                  없어 키를 받아 둘 곳도 없습니다.
+                  키는 브라우저에서 Google 로 <strong>직접</strong> 갑니다 — 헤더로 보내므로
+                  주소에 남지 않습니다. 이 사이트에는 서버가 없어 키를 받아 둘 곳도 없습니다.
+                  <br />
+                  <strong>모델 ID 를 바꿀 수 있게 둔 이유:</strong> 모델 이름은 자주 바뀌고,
+                  이름이 틀리면 오류 본문이 아래에 그대로 표시됩니다.
                 </p>
               </>
             ) : (
@@ -425,6 +469,7 @@ export default function App() {
               답변{' '}
               <span className="muted">
                 · {ENGINE_LABEL[answer.engine]} {answer.model}
+                {answer.engine === 'gemini' && ` · ${API_FLAVOR_LABEL[flavor]}`}
                 {answer.firstTokenMs != null && ` · 첫 글자 ${answer.firstTokenMs.toFixed(0)}ms`}
                 {answer.totalMs != null && ` · 전체 ${(answer.totalMs / 1000).toFixed(1)}초`}
               </span>
