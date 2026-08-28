@@ -161,16 +161,31 @@ ollama serve            # 자동으로 뜨지 않는다
 ollama pull qwen3.5:2b
 ```
 
-배포된 주소(`https://ibiseolsin.github.io`)에서 로컬 Ollama 를 부르려면 Ollama 쪽에서
-그 origin 을 허용해야 한다:
+`localhost` 에서는 설정 없이 바로 된다 (실측: Ollama 가 `http://localhost:4175` origin 에
+프리플라이트 204 를 준다). **첫 답변은 모델을 올리느라 40초쯤 걸린다** (콜드 43초 실측).
+
+#### 배포된 주소에서는 로컬 Ollama 가 막힌다
+
+관문이 **둘**이고, 아래 표는 실측이다:
+
+| origin | Ollama 프리플라이트 |
+|---|---|
+| `http://localhost:4175` | 204 (기본 허용) |
+| `https://ibiseolsin.github.io` | **403** |
+
+① **Ollama 의 CORS** — 그 주소를 허용해야 한다:
 
 ```bash
 # Windows PowerShell — 설정 후 Ollama 재시작
 setx OLLAMA_ORIGINS "https://ibiseolsin.github.io"
 ```
 
-`localhost` 로 개발/preview 할 때는 따로 설정하지 않아도 된다.
-**첫 답변은 모델을 올리느라 40초쯤 걸린다** (콜드 43초 실측).
+② **브라우저의 사설망 접근 제한** — 공개 origin(https)에서 loopback(`127.0.0.1`)으로 가는
+요청을 크롬이 따로 막을 수 있다. Ollama 는 `Access-Control-Allow-Private-Network` 헤더를
+보내지 않는다. **①을 고쳐도 ②가 남을 수 있고, 이건 아직 확인되지 않았다.**
+
+그래서 **로컬 엔진은 개발 서버(localhost)에서 쓰는 것이 확실한 길**이고, 배포본에서는
+Gemini 를 쓰는 것이 기본이다. 화면에도 이 안내를 띄우고 「연결 확인」 버튼을 두었다.
 
 ## 환경 확인 결과 (2026-08-28)
 

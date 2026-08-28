@@ -9,6 +9,9 @@ import {
   ENGINE_LABEL,
   EngineError,
   generate,
+  localEngineWarning,
+  OLLAMA_BASE,
+  pingOllama,
   type ApiFlavor,
   type EngineKind,
 } from './lib/engine.ts'
@@ -98,6 +101,7 @@ export default function App() {
   const [answer, setAnswer] = useState<Answer | null>(null)
   const [engineError, setEngineError] = useState<{ message: string; hint?: string } | null>(null)
   const abort = useRef<AbortController | null>(null)
+  const [ping, setPing] = useState<string | null>(null)
 
   const [bm25, setBm25] = useState<Bm25Index | null>(null)
 
@@ -388,12 +392,35 @@ export default function App() {
                 </p>
               </>
             ) : (
-              <p className="muted">
-                내 컴퓨터의 Ollama(<code>{ENGINE_DEFAULTS.ollama.baseUrl}</code>,{' '}
-                <code>{ENGINE_DEFAULTS.ollama.model}</code>)를 씁니다. 키가 필요 없지만 Ollama 가
-                켜져 있어야 하고, 배포된 주소에서 쓰려면 <code>OLLAMA_ORIGINS</code> 설정이
-                필요합니다. <strong>첫 답변은 모델을 올리느라 40초쯤 걸릴 수 있습니다.</strong>
-              </p>
+              <>
+                {localEngineWarning(OLLAMA_BASE) && (
+                  <p className="disclaimer" role="note">
+                    <strong>이 주소에서는 로컬 Ollama 가 막힙니다.</strong>{' '}
+                    {localEngineWarning(OLLAMA_BASE)} Ollama 쪽에{' '}
+                    <code>OLLAMA_ORIGINS</code> 를 설정해도 크롬의 사설망 접근 제한이 남을 수
+                    있습니다. <strong>로컬 엔진은 개발 서버(localhost)에서 쓰는 쪽이 확실하고</strong>,
+                    배포본에서는 위의 Gemini 를 쓰세요.
+                  </p>
+                )}
+                <p className="muted">
+                  내 컴퓨터의 Ollama(<code>{OLLAMA_BASE}</code>,{' '}
+                  <code>{ENGINE_DEFAULTS.ollama.model}</code>)를 씁니다. 키가 필요 없지만 Ollama 가
+                  켜져 있어야 합니다(<code>ollama serve</code>).{' '}
+                  <strong>첫 답변은 모델을 올리느라 40초쯤 걸릴 수 있습니다.</strong>
+                </p>
+                <button
+                  className="ghost"
+                  type="button"
+                  onClick={async () => {
+                    setPing('확인 중…')
+                    const r = await pingOllama(OLLAMA_BASE)
+                    setPing(r.ok ? `연결됨 · Ollama ${r.version}` : `${r.message}${r.hint ? ` — ${r.hint}` : ''}`)
+                  }}
+                >
+                  연결 확인
+                </button>
+                {ping && <p className="muted">{ping}</p>}
+              </>
             )}
           </section>
         )}

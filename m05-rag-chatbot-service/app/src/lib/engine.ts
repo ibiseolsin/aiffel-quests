@@ -37,13 +37,16 @@ export type EngineConfig = {
   model: string
 }
 
+/** 기본 Ollama 주소. 선택적 필드가 아니라 상수여야 곳곳에서 `!` 를 붙이지 않는다 */
+export const OLLAMA_BASE = 'http://127.0.0.1:11434'
+
 export const ENGINE_DEFAULTS: Record<EngineKind, EngineConfig> = {
   // 정적 배포에는 키를 넣을 수 없다(공개된다). 방문자가 자기 키를 화면에서 넣는다.
   // 모델 ID 는 화면에서 바꿀 수 있게 두었다 — 모델 이름은 자주 바뀌고,
   // 틀린 이름 하나 때문에 코드를 고쳐야 하는 것은 사용자 쪽 낭비다
   gemini: { kind: 'gemini', flavor: 'vertex', model: 'gemini-3.7-flash' },
   // 콜드 스타트 43초를 측정해 두었다 (FINDINGS 1절) — 첫 답변이 늦은 것은 고장이 아니다
-  ollama: { kind: 'ollama', baseUrl: 'http://127.0.0.1:11434', model: 'qwen3.5:2b' },
+  ollama: { kind: 'ollama', baseUrl: OLLAMA_BASE, model: 'qwen3.5:2b' },
 }
 
 export const ENGINE_LABEL: Record<EngineKind, string> = {
@@ -167,16 +170,55 @@ async function generateGemini(
 /**
  * Ollama — 사용자의 컴퓨터에서 돈다.
  *
- * 배포된 페이지(https)에서 `http://127.0.0.1` 을 부르는 것은 브라우저가 허용하지만,
- * Ollama 쪽에서 origin 을 막는다. 그래서 `OLLAMA_ORIGINS` 설정이 필요하다 (README).
+ * **배포된 https 페이지에서 부르려면 두 관문을 넘어야 한다.** 실측으로 확인한 것:
+ *
+ * | origin | Ollama 프리플라이트 |
+ * |---|---|
+ * | `http://localhost:4175` | 204 (기본 허용) |
+ * | `https://ibiseolsin.github.io` | **403** — `OLLAMA_ORIGINS` 미설정 |
+ *
+ * ① Ollama 의 CORS — `OLLAMA_ORIGINS` 에 그 주소를 넣어야 한다.
+ * ② 브라우저의 사설망 접근 제한 — 공개 origin 에서 loopback 으로 가는 요청을 크롬이
+ *    따로 막을 수 있고, Ollama 는 `Access-Control-Allow-Private-Network` 를 보내지 않는다.
+ *    **①을 고쳐도 ②가 남을 수 있다** — 확인되지 않았다.
+ *
+ * 그래서 로컬 엔진은 `localhost` 에서 여는 것이 확실한 길이다.
  */
+
+/** 이 페이지에서 이 주소를 부를 때 브라우저가 막을 가능성이 있는지 미리 본다 */
+export function localEngineWarning(baseUrl: string): string | null {
+  if (typeof location === 'undefined') return null
+  if (location.protocol !== 'https:') return null
+  if (!baseUrl.startsWith('http://')) return null
+  return `이 페이지는 https(${location.origin})인데 Ollama 는 ${baseUrl} 입니다. 그대로는 브라우저나 Ollama 가 요청을 막습니다.`
+}
+
+/** 답을 만들기 전에 연결만 확인한다. 실패 원인을 질문 없이 알 수 있게 */
+export async function pingOllama(
+  baseUrl: string,
+): Promise<{ ok: true; version: string } | { ok: false; message: string; hint?: string }> {
+  try {
+    const res = await fetch(`${baseUrl}/api/version`)
+    if (!res.ok) return { ok: false, message: `Ollama 가 ${res.status} 를 돌려줬다` }
+    const json = await res.json()
+    return { ok: true, version: String(json.version ?? '알 수 없음') }
+  } catch (e) {
+    return {
+      ok: false,
+      message: `연결하지 못했다: ${(e as Error).message}`,
+      hint:
+        localEngineWarning(baseUrl) ??
+        'Ollama 가 켜져 있는지 확인하세요 (`ollama serve`). 켜져 있는데도 안 되면 OLLAMA_ORIGINS 설정이 필요합니다',
+    }
+  }
+}
 async function generateOllama(
   config: EngineConfig,
   prompt: string,
   onToken: OnToken,
   signal: AbortSignal,
 ): Promise<void> {
-  const base = config.baseUrl ?? ENGINE_DEFAULTS.ollama.baseUrl
+  const base = config.baseUrl ?? OLLAMA_BASE
   let res: Response
   try {
     res = await fetch(`${base}/api/generate`, {
@@ -193,9 +235,12 @@ async function generateOllama(
     })
   } catch (e) {
     if (signal.aborted) return
+    const warn = localEngineWarning(base)
     throw new EngineError(
       `Ollama 에 연결하지 못했다: ${(e as Error).message}`,
-      'Ollama 가 켜져 있는지, 그리고 이 페이지 주소가 OLLAMA_ORIGINS 에 있는지 확인하세요',
+      warn
+        ? `${warn} OLLAMA_ORIGINS 에 이 주소를 넣어도 크롬의 사설망 접근 제한이 남을 수 있습니다 — 로컬 엔진은 localhost 에서 열어 쓰는 쪽이 확실합니다.`
+        : 'Ollama 가 켜져 있는지 확인하세요 (`ollama serve`). 켜져 있는데도 안 되면 OLLAMA_ORIGINS 설정이 필요합니다',
     )
   }
 
