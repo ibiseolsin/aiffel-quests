@@ -264,3 +264,36 @@
     color: #f2b8b5;
   }
 }
+
+/* --- S4: 검색 경로 표시 --- */
+
+.via {
+  border-radius: 4px;
+  padding: 0 0.35rem;
+  font-size: 0.75rem;
+  border: 1px solid currentColor;
+}
+
+.via-dense {
+  color: #4b6ea9;
+}
+
+.via-sparse {
+  color: #8a5a2b;
+}
+
+.via-both {
+  color: #2f7d4f;
+}
+
+@media (prefers-color-scheme: dark) {
+  .via-dense {
+    color: #9db8e0;
+  }
+  .via-sparse {
+    color: #d9a86c;
+  }
+  .via-both {
+    color: #7ecb9a;
+  }
+}

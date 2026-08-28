@@ -1,5 +1,5 @@
 import { pipeline, env, type FeatureExtractionPipeline } from '@huggingface/transformers'
-import type { VectorMeta } from './corpus'
+import type { VectorMeta } from './corpus.ts'
 
 /**
  * 브라우저는 **질의만** 임베딩한다. 청크 벡터는 빌드 시 만들어 정적 파일로 온다.

@@ -1,25 +1,44 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import './App.css'
-import { loadCorpus, type Corpus } from './lib/corpus'
-import { embedPassage, embedQuery, loadEmbedder, type LoadProgress } from './lib/embedder'
-import { cosine, cosineTopK, storedVector, type Hit } from './lib/search'
+import { loadCorpus, type Corpus } from './lib/corpus.ts'
+import { embedPassage, embedQuery, loadEmbedder, type LoadProgress } from './lib/embedder.ts'
+import { buildBm25, type Bm25Index } from './lib/bm25.ts'
+import {
+  cosine,
+  hybridSearch,
+  limitFamilies,
+  storedVector,
+  type HybridHit,
+  type Via,
+} from './lib/search.ts'
 
 /**
- * S3 — 벡터스토어와 브라우저 질의 임베딩.
+ * S3·S4 — 벡터스토어, 브라우저 질의 임베딩, 하이브리드 검색.
  *
  * 여기까지는 **엔진(LLM) 없이** 돈다. 화면에 나오는 것은 검색 결과와 점수뿐이고,
  * 답변 생성은 S5 부터다. 순서를 이렇게 둔 이유는 근거 검색이 이 제품의 핵심이라서다 —
  * 검색이 틀리면 답변이 아무리 매끄러워도 쓸모가 없다.
+ *
+ * 근거마다 **어느 경로로 들어왔는지**를 화면에 드러낸다. 하이브리드를 붙인 이유가
+ * 조문 번호 질문이었으므로, 그게 실제로 BM25 경로로 잡히는지 사용자도 볼 수 있어야 한다.
  */
 
 const TOP_K = 8
 
 const EXAMPLES = [
-  '일반식품 상세페이지에 "면역력 강화"라고 써도 되나요?',
   '알레르기 유발물질은 어떻게 표시해야 하나요?',
-  '영양성분 표시는 어떤 제품에 의무인가요?',
+  '"무첨가"라고 강조해서 표시해도 되나요?',
+  '자율심의를 받아야 하는 광고는 어디까지인가요?',
+  // 조문 번호를 그대로 묻는 질문. BM25 경로로 잡히는 것을 화면에서 볼 수 있다
   '제8조 제1항 제3호가 무슨 내용인가요?',
+  '시행규칙 제6조 제2항 제3호에 뭐가 적혀 있나요?',
 ]
+
+const VIA_LABEL: Record<Via, string> = {
+  dense: '의미 검색',
+  sparse: '표기 검색',
+  both: '의미+표기',
+}
 
 const mb = (n: number) => `${(n / 1024 / 1024).toFixed(0)}MB`
 
@@ -31,14 +50,21 @@ export default function App() {
   const [progress, setProgress] = useState<LoadProgress | null>(null)
   const [ready, setReady] = useState(false)
   const [query, setQuery] = useState('')
-  const [hits, setHits] = useState<Hit[] | null>(null)
+  const [hits, setHits] = useState<HybridHit[] | null>(null)
   const [searching, setSearching] = useState(false)
   const [elapsed, setElapsed] = useState<number | null>(null)
   const [probe, setProbe] = useState<Probe>(null)
   const started = useRef(false)
 
+  const [bm25, setBm25] = useState<Bm25Index | null>(null)
+
   useEffect(() => {
-    loadCorpus().then(setCorpus, (e: Error) => setError(e.message))
+    loadCorpus().then((c) => {
+      setCorpus(c)
+      // 365개라 브라우저에서 색인해도 순식간이다. 위치 표기를 함께 넣는 것이 핵심 —
+      // `제8조①제3호` 가 정규화로 「제8조 제1항 제3호」가 되어 사용자 표기와 만난다
+      setBm25(buildBm25(c.chunks.map((x) => `${x.source} ${x.path} ${x.text}`)))
+    }, (e: Error) => setError(e.message))
   }, [])
 
   /** 모델은 사용자가 누를 때 받는다 — 100MB 넘는 것을 묻지 않고 내려받지 않는다 */
@@ -62,13 +88,15 @@ export default function App() {
   }
 
   const search = async (q: string) => {
-    if (!corpus || !q.trim()) return
+    if (!corpus || !bm25 || !q.trim()) return
     setSearching(true)
     try {
       const extractor = await loadEmbedder(corpus.vectorMeta)
       const t0 = performance.now()
       const v = await embedQuery(extractor, q.trim(), corpus.vectorMeta)
-      setHits(cosineTopK(corpus, v, TOP_K))
+      const found = hybridSearch(corpus, v, q.trim(), bm25, TOP_K * 3)
+      // 앞머리가 같은 형제 청크가 결과를 뒤덮지 않게 무리마다 개수를 제한한다
+      setHits(limitFamilies(found, (i) => corpus.chunks[i].text).slice(0, TOP_K))
       setElapsed(performance.now() - t0)
     } catch (e) {
       setError((e as Error).message)
@@ -188,8 +216,11 @@ export default function App() {
             </div>
             <p className="muted">
               지금은 <strong>검색까지만</strong> 동작합니다. 답변 생성과 판정은 다음
-              단계(S5·S8)입니다 — 아래 점수는 모델이 요약한 것이 아니라 조문 원문과 질문의 코사인
-              유사도입니다.
+              단계(S5·S8)입니다 — 아래 점수는 모델이 요약한 것이 아니라 조문 원문과 질문을
+              직접 비교한 값입니다. <strong>의미 검색</strong>은 뜻이 가까운 조문을,{' '}
+              <strong>표기 검색</strong>은 「제8조 제1항 제3호」처럼 적은 표기가 그대로 맞는
+              조문을 찾습니다. 근거마다 <strong>두 경로에서 각각 몇 위였는지</strong>를 함께
+              적었습니다 — 한쪽에서 「후보 밖」인 근거는 다른 경로가 건져 올린 것입니다.
             </p>
           </section>
         )}
@@ -203,12 +234,13 @@ export default function App() {
               )}
             </h2>
             <ol className="hits">
-              {hits.map(({ index, score }) => {
+              {hits.map(({ index, score, via, dense, sparse, denseRank, sparseRank }) => {
                 const c = corpus.chunks[index]
                 return (
                   <li key={c.id}>
                     <div className="hit-head">
                       <span className="score">{score.toFixed(3)}</span>
+                      <span className={`via via-${via}`}>{VIA_LABEL[via]}</span>
                       <span className="kind">{c.sourceKind}</span>
                       <span className="src">{c.source}</span>
                       <span className="loc">{c.path}</span>
@@ -216,6 +248,11 @@ export default function App() {
                     <p className="hit-text">{c.text}</p>
                     <div className="hit-foot">
                       <span className="muted">시행 {c.effectiveDate}</span>
+                      <span className="muted">
+                        의미 {denseRank ? `${denseRank}위` : '후보 밖'} (코사인{' '}
+                        {dense.toFixed(3)}) · 표기 {sparseRank ? `${sparseRank}위` : '후보 밖'}{' '}
+                        (BM25 {sparse.toFixed(2)})
+                      </span>
                       <a href={c.url} target="_blank" rel="noreferrer">
                         law.go.kr 에서 원문 보기 →
                       </a>
