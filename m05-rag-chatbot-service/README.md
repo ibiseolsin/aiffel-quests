@@ -115,9 +115,62 @@ PRD → 자료 수집·청크화 → 벡터스토어 → 검색 → 프롬프트
 
 ## 실행
 
-> TODO: 스캐폴딩 후 작성
+사전 준비: Node 24. 답변 생성에는 Gemini API 키 **또는** 로컬 Ollama 가 필요하지만,
+**근거 검색은 둘 다 없어도 된다.**
 
-사전 준비: Node 24 / (로컬 엔진을 쓸 경우) Ollama + 모델 pull
+```bash
+cd app
+npm install
+npm run dev                       # 개발 서버
+npm run build && npm run preview   # 배포본과 같은 빌드로 확인
+```
+
+### 자료와 벡터스토어 다시 만들기
+
+둘 다 커밋돼 있으므로 평소에는 돌릴 필요가 없다. 법령이 개정됐을 때만 돌린다.
+
+```bash
+node scripts/fetch-corpus.mjs     # 국가법령정보센터 API → chunks.json
+node scripts/embed-corpus.mjs     # 청크 임베딩 → vectors.bin (+ 재현성 자체 점검)
+```
+
+`fetch-corpus.mjs` 는 **오늘 시행 중인 판만** 가져온다. 시행 예정 개정이 대기 중이면
+실행 끝에 경고로 알려 준다. `INCLUDE_FUTURE=1` 로 시행 예정을 포함시킬 수 있지만
+**배포본에 쓰면 안 된다** (PRD 실패 조건).
+
+### 측정 스크립트 — 앱과 같은 코드를 쓴다
+
+```bash
+node scripts/eval-retrieval.mjs 0 0.3 0.5 1   # 검색만, LLM 없이. 희소가중치 축
+NGRAMS=0 node scripts/eval-retrieval.mjs 0.3   # 한글 2-gram 축
+node scripts/ask.mjs "질문" [top-k]            # 파이프라인 전체 (검색 → 프롬프트 → 엔진)
+```
+
+`ask.mjs` 는 기본으로 Ollama 를 쓰고, `GEMINI_API_KEY` 가 있으면 Gemini 를 쓴다.
+
+### 엔진 준비
+
+**Gemini (기본)** — [aistudio.google.com](https://aistudio.google.com) 에서 키를 발급받아
+화면에 입력한다. 키는 브라우저에서 Google 로 직접 가고, 이 저장소와 배포본에는 들어가지 않는다
+(정적 배포에 키를 넣으면 공개된다).
+
+**Ollama (로컬)** — 키가 필요 없지만 설치와 실행이 필요하다.
+
+```bash
+ollama serve            # 자동으로 뜨지 않는다
+ollama pull qwen3.5:2b
+```
+
+배포된 주소(`https://ibiseolsin.github.io`)에서 로컬 Ollama 를 부르려면 Ollama 쪽에서
+그 origin 을 허용해야 한다:
+
+```bash
+# Windows PowerShell — 설정 후 Ollama 재시작
+setx OLLAMA_ORIGINS "https://ibiseolsin.github.io"
+```
+
+`localhost` 로 개발/preview 할 때는 따로 설정하지 않아도 된다.
+**첫 답변은 모델을 올리느라 40초쯤 걸린다** (콜드 43초 실측).
 
 ## 환경 확인 결과 (2026-08-28)
 
