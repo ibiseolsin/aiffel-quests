@@ -57,7 +57,9 @@ export const ENGINE_DEFAULTS: Record<EngineKind, EngineConfig> = {
   // 정적 배포에는 키를 넣을 수 없다(공개된다). 방문자가 자기 키를 화면에서 넣는다.
   // 모델 ID 는 화면에서 바꿀 수 있게 두었다 — 모델 이름은 자주 바뀌고,
   // 틀린 이름 하나 때문에 코드를 고쳐야 하는 것은 사용자 쪽 낭비다
-  gemini: { kind: 'gemini', flavor: 'vertex-sa', model: 'gemini-3.7-flash' },
+  // 기본 창구는 **실제로 답변이 온 것이 확인된** AI Studio 키다 (2026-08-29, 배포본).
+  // 서비스 계정 JSON 은 개인키가 브라우저에 올라가고 권한도 넓어 기본으로 둘 것이 아니다
+  gemini: { kind: 'gemini', flavor: 'studio', model: 'gemini-3.7-flash' },
   // 콜드 스타트 43초를 측정해 두었다 (FINDINGS 1절) — 첫 답변이 늦은 것은 고장이 아니다
   ollama: { kind: 'ollama', baseUrl: OLLAMA_BASE, model: 'qwen3.5:2b' },
 }
