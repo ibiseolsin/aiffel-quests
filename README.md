@@ -9,7 +9,23 @@
 
 | 모듈 | 과제 | 상태 | 배포 |
 |---|---|---|---|
-| [m05](m05-rag-chatbot-service/) | Main Quest 3 — 식품 표시·광고 규정 안내 RAG 챗봇 | PRD·PLAN 확정, S1 대기 | — |
+| [m05](m05-rag-chatbot-service/) | Main Quest 3 — 식품 표시·광고 규정 안내 RAG 챗봇 | S1 완료, S2 대기 | [배포](https://ibiseolsin.github.io/aiffel-quests/m05/) |
+
+## 배포
+
+`main` 에 push 하면 Actions 가 각 퀘스트 앱을 빌드해 Pages 하위 경로로 올린다.
+
+| 퀘스트 | 경로 |
+|---|---|
+| m05 | https://ibiseolsin.github.io/aiffel-quests/m05/ |
+
+> **주의: 워크플로우 파일은 CLI 로 push 할 수 없다.** 현재 `gh` 토큰에 `workflow` 스코프가
+> 없어 `.github/workflows/` 변경이 거부된다. 고쳐야 하면 GitHub 웹 에디터를 쓰거나
+> `gh auth refresh -h github.com -s workflow` 를 먼저 통과시킨다.
+>
+> 이 리포는 git 자격증명을 `gh` 토큰으로 쓰도록 로컬 설정돼 있다
+> (`credential.https://github.com.helper = !gh auth git-credential`) — Windows Git
+> Credential Manager 에 다른 계정이 잡혀 있어서다.
 
 ## 새 퀘스트 시작하기
 
