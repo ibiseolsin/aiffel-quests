@@ -52,6 +52,14 @@ import {
   type PreVerdict,
 } from './lib/evidence-state.ts'
 import { judge, ruleVerdicts, type JudgeOutcome, type RuleVerdict } from './lib/judge.ts'
+import {
+  loadDemo,
+  loadDemoIndex,
+  playTokens,
+  resolveHits,
+  type DemoEntry,
+  type Recording,
+} from './lib/demo.ts'
 import { EvidenceModal, type EvidenceView } from './components/EvidenceModal.tsx'
 import { SourceChips } from './components/SourceChips.tsx'
 import {
@@ -307,6 +315,13 @@ export default function App() {
 
   const [bm25, setBm25] = useState<Bm25Index | null>(null)
 
+  // ── S12: 녹화 데모 ────────────────────────────────────────────────────────
+  /** 재생 중인 녹화. `null` 이면 평소 화면이다. **키 없이 볼 수 있는 유일한 답변 경로** */
+  const [demo, setDemo] = useState<Recording | null>(null)
+  const [demoList, setDemoList] = useState<DemoEntry[] | null>(null)
+  const [demoError, setDemoError] = useState<string | null>(null)
+  const demoStop = useRef<(() => void) | null>(null)
+
   /**
    * 지금 고른 엔진의 설정. **답변 생성과 판정이 같은 것을 본다** — PRD 3절 F5 가
    * 「LLM 판정은 현재 선택된 엔진으로 돌린다」이고, 두 벌로 두면 화면이 말하는 엔진과
@@ -361,6 +376,11 @@ export default function App() {
   }, [ollamaModel])
 
 
+  // S12 — 녹화 목록. 실패해도 앱은 그대로 돈다 (데모는 덤이다)
+  useEffect(() => {
+    loadDemoIndex().then(setDemoList, () => setDemoList([]))
+  }, [])
+
   useEffect(() => {
     loadCorpus().then((c) => {
       setCorpus(c)
@@ -392,6 +412,8 @@ export default function App() {
 
   const search = async (q: string) => {
     if (!corpus || !bm25 || !q.trim()) return
+    // 녹화를 보는 중에 실제 질문을 던지면 재생부터 끝낸다 — 두 화면이 섞이면 안 된다
+    if (demo) stopDemo()
     setSearching(true)
     setEngineError(null)
     setAnswer(null)
@@ -505,6 +527,89 @@ export default function App() {
   const cancel = () => {
     abort.current?.abort()
     setAnswer((a) => (a ? { ...a, done: true, cancelled: true } : a))
+  }
+
+  /* ── S12: 녹화 데모 ────────────────────────────────────────────────────── */
+
+  /** 재생을 끝내고 평소 화면으로 돌아간다. 녹화가 남긴 화면을 **전부** 치운다 —
+   *  근거만 남아 있으면 그 다음 질문의 근거로 읽힌다 */
+  const stopDemo = useCallback(() => {
+    demoStop.current?.()
+    demoStop.current = null
+    setDemo(null)
+    setAnswer(null)
+    setHits(null)
+    setStages(null)
+    setScope(null)
+    setJudgment(null)
+    setElapsed(null)
+  }, [])
+
+  useEffect(() => () => demoStop.current?.(), [])
+
+  /**
+   * 녹화본을 평소 자리에 넣고 토큰을 다시 흘린다.
+   *
+   * **베껴 그리지 않는다** — 넣는 것은 검색 결과·범위 판정·답변 글자뿐이고, 근거 상태와
+   * 규칙 배지는 `verdict`·`rules` 가 평소처럼 다시 계산한다. LLM 판정만 녹화본에서
+   * 꺼내 온다 (그건 다시 부를 수 없는 값이라서다).
+   */
+  const playDemo = async (slug: string) => {
+    stopDemo()
+    setDemoError(null)
+    if (!corpus) return setDemoError('조문 자료를 아직 읽지 못했습니다.')
+    try {
+      const rec = await loadDemo(slug)
+      const found = resolveHits(rec, corpus)
+      const { trace, ranked, kept, loaded, embedMs, dim } = rec.stageInput
+
+      setQuery(rec.question)
+      setEngineError(null)
+      setVoteId(null)
+      setFbError(null)
+      setHits(found)
+      setStages(searchStages(trace, ranked, kept, loaded, embedMs, dim))
+      // 녹화는 브라우저가 아니라 Node 스크립트에서 떴다. 검색 총 시간을 여기 넣으면
+      // 방문자의 브라우저에서 잰 값처럼 읽히므로 비워 둔다 (배너가 그 사실을 말한다)
+      setElapsed(null)
+      setScope(rec.pre)
+      setDemo(rec)
+
+      // 거절 녹화 — 엔진을 안 불렀으니 재생할 답변도 없다. 화면은 거절 문구를 세운다
+      if (rec.pre.refuse) return
+
+      setAnswer({
+        question: rec.question,
+        text: '',
+        labels: rec.evidence.map((e) => e.label),
+        evidence: rec.evidence.map((e) => {
+          const c = corpus.chunks[found[rec.evidence.indexOf(e)].index]
+          return { label: e.label, chunkId: e.chunkId, source: c.source, path: c.path }
+        }),
+        engine: rec.engine as EngineKind,
+        model: rec.model,
+        done: false,
+        cancelled: false,
+        firstTokenMs: null,
+        totalMs: null,
+      })
+
+      demoStop.current = playTokens(
+        rec,
+        (t) =>
+          setAnswer((a) =>
+            a ? { ...a, text: a.text + t, firstTokenMs: a.firstTokenMs ?? rec.firstTokenMs } : a,
+          ),
+        () => {
+          // 타이머가 밀려 토큰을 놓쳤더라도 최종 글자는 녹화본 그대로여야 한다
+          setAnswer((a) => (a ? { ...a, text: rec.answer, done: true, totalMs: rec.totalMs } : a))
+          if (rec.judgement) setJudgment(rec.judgement as unknown as JudgeOutcome)
+        },
+      )
+    } catch (e) {
+      setDemo(null)
+      setDemoError((e as Error).message)
+    }
   }
 
   /**
@@ -682,12 +787,14 @@ export default function App() {
    */
   useEffect(() => {
     if (!answer?.done || answer.cancelled || !answer.text) return
+    // S12 — 녹화 재생 중에는 엔진을 부르지 않는다. 판정도 녹화본의 값을 쓴다
+    if (demo) return
     const key = `${answer.question}::${answer.text.length}::${answer.model}`
     if (judgedFor.current === key) return
     judgedFor.current = key
     setJudgment(null)
     runJudge()
-  }, [answer, runJudge])
+  }, [answer, runJudge, demo])
 
   /** 새 질문이 시작되면 지난 판정을 지운다 — 앞 답변의 배지가 남으면 그게 거짓이 된다 */
   useEffect(() => {
@@ -746,7 +853,7 @@ export default function App() {
   }, [corpus])
 
   return (
-    <div className="page">
+    <div className="page" data-demo={demo ? 'on' : undefined}>
       <header className="header">
         <h1>식품 표시·광고 규정 안내</h1>
         <p className="lede">
@@ -780,6 +887,27 @@ export default function App() {
       </header>
 
       <main className="main">
+        {/* S12 — **재생 중이라는 사실이 화면에서 사라지면 안 된다.** 스크롤을 내려도
+            따라오고, 모양·색·글자 셋이 같은 말을 한다 (S9 배지와 같은 원칙) */}
+        {demo && (
+          <div className="demo-bar" role="status">
+            <div>
+              <strong>▶ 녹화 데모 재생 중</strong> — 지금 계산하는 것이 아니라{' '}
+              <strong>{demo.recordedAt} 에 실제로 받았던 응답</strong>을 그대로 다시 틀고
+              있습니다 ({demo.engine} {demo.model}).
+              <span className="muted">
+                {' '}
+                답변 글자와 도착 간격은 녹화 그대로이고, <strong>근거 상태와 규칙 배지는
+                지금 이 코드가 다시 계산합니다.</strong> 검색 단계 시간은 녹화를 뜬
+                스크립트에서 잰 값이라 화면에 넣지 않았습니다.
+              </span>
+            </div>
+            <button type="button" className="ghost" onClick={stopDemo}>
+              나가기
+            </button>
+          </div>
+        )}
+
         {error && (
           <section className="notice error">
             <h2>자료를 불러오지 못했습니다</h2>
@@ -815,6 +943,42 @@ export default function App() {
                 {corpus ? '모델 받고 검색 켜기' : '자료 읽는 중…'}
               </button>
             )}
+          </section>
+        )}
+
+        {/* S12 — **키가 없어도 볼 수 있는 유일한 답변 경로.** 그래서 모델을 받기 전
+            화면에 둔다. 답변 엔진(Gemini)에는 키가 필요하고 로컬 Ollama 는 배포본에서
+            막히므로(FINDINGS 9절), 이게 없으면 처음 온 사람은 파이프라인 절반에서 끊긴다 */}
+        {!!demoList?.length && !demo && (
+          <section className="demo-pick">
+            <h2>
+              키 없이 보기 <span className="muted">· 녹화 데모 {demoList.length}개</span>
+            </h2>
+            <p className="muted">
+              API 키가 없어도 <strong>질문 → 검색 → 근거 → 답변 → 판정</strong> 전체를 볼 수
+              있습니다. 실제로 받았던 응답을 그대로 다시 틀어 주며,{' '}
+              <strong>재생 중에는 화면이 눈에 띄게 달라집니다.</strong>
+            </p>
+            <p className="muted">
+              <strong>한 번의 실행 기록입니다.</strong> 같은 질문이라도 모델이 매번 같은 답을
+              주지 않습니다 — 인용을 달았다가 안 달았다가 하고, 그에 따라 근거 상태 배지도
+              바뀝니다. 좋게 나온 실행을 골라 담지 않았습니다.
+            </p>
+            <ul className="demo-list">
+              {demoList.map((d) => (
+                <li key={d.slug}>
+                  <button type="button" className="ghost" onClick={() => playDemo(d.slug)}>
+                    ▶ {d.question}
+                  </button>
+                  <span className="muted">
+                    {STATE_MARK[d.state]} {d.state}
+                    {d.calledEngine ? '' : ' · 엔진을 부르지 않은 응답'} · {d.recordedAt} ·{' '}
+                    {d.model}
+                  </span>
+                </li>
+              ))}
+            </ul>
+            {demoError && <p className="bad">{demoError}</p>}
           </section>
         )}
 
@@ -1188,6 +1352,7 @@ export default function App() {
             <h2>
               답변{' '}
               <span className="muted">
+                {demo && <strong className="demo-chip">녹화</strong>}
                 · {ENGINE_LABEL[answer.engine]} {answer.model}
                 {answer.engine === 'gemini' && ` · ${API_FLAVOR_LABEL[flavor]}`}
                 {answer.firstTokenMs != null && ` · 첫 글자 ${answer.firstTokenMs.toFixed(0)}ms`}
@@ -1281,7 +1446,9 @@ export default function App() {
                   <h3>
                     LLM 판정{' '}
                     <span className="muted">
-                      · 확률적 · {ENGINE_LABEL[engine]}
+                      {/* 녹화 재생 중에는 **녹화 당시 엔진**을 적는다. 지금 고른 엔진을
+                          쓰면 「Gemini · qwen3.5:2b」 같은 거짓 조합이 화면에 뜬다 */}
+                      · 확률적 · {ENGINE_LABEL[demo ? (demo.engine as EngineKind) : engine]}
                       {judgment && ` ${judgment.model}`}
                     </span>
                   </h3>
@@ -1329,7 +1496,7 @@ export default function App() {
                       </p>
                     </>
                   )}
-                  {!judging && judgment && (
+                  {!judging && judgment && !demo && (
                     <button className="ghost" type="button" onClick={runJudge}>
                       다시 판정
                     </button>
@@ -1348,12 +1515,19 @@ export default function App() {
                         type="button"
                         className="vote"
                         aria-pressed={currentVote?.vote === v}
+                        disabled={!!demo}
                         onClick={() => vote(v)}
                       >
                         {VOTE_LABEL[v]}
                       </button>
                     ))}
                   </div>
+                  {demo && (
+                    <p className="muted">
+                      녹화 데모에는 평가를 남길 수 없습니다 — 기록에 들어가면 「사람이 실제로
+                      받은 답변에 누른 평가」가 아니게 됩니다.
+                    </p>
+                  )}
                   {currentVote ? (
                     <p className="muted">
                       {VOTE_LABEL[currentVote.vote]} 로 남겼습니다 ·{' '}

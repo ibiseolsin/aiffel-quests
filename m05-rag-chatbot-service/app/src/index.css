@@ -8,6 +8,11 @@
   --warn-bg: #fdf6e3;
   --warn-border: #e0c98a;
   --warn-text: #6b5320;
+  /* S12 — 녹화 재생. 경고(노랑)와도 본문(갈색)과도 다른 색이어야 「지금 계산 중」과
+     헷갈리지 않는다 */
+  --demo: #2f5d8a;
+  --demo-bg: #eef4fa;
+  --demo-border: #a9c5de;
 
   color-scheme: light dark;
   font-family: system-ui, -apple-system, 'Segoe UI', 'Malgun Gothic', sans-serif;
@@ -26,6 +31,9 @@
     --warn-bg: #2a2318;
     --warn-border: #5c4a24;
     --warn-text: #e5cd93;
+    --demo: #8fb8dd;
+    --demo-bg: #172230;
+    --demo-border: #2f4a66;
   }
 }
 

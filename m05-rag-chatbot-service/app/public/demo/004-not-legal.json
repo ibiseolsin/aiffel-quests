@@ -1,0 +1,141 @@
+{
+  "version": 1,
+  "slug": "004-not-legal",
+  "recordedAt": "2026-08-30",
+  "corpusChunks": 365,
+  "question": "쿠팡 수수료 빼면 남는 게 없는데 원가를 어떻게 낮출 수 있을까요?",
+  "engine": "ollama",
+  "model": "qwen3.5:2b",
+  "stageInput": {
+    "trace": {
+      "corpusSize": 365,
+      "candidates": 30,
+      "denseFound": 30,
+      "sparseFound": 30,
+      "merged": 58,
+      "both": 2,
+      "sparseWeight": 0.3,
+      "sparseTop5": 40.76963033894535
+    },
+    "ranked": 24,
+    "kept": 19,
+    "loaded": 8,
+    "embedMs": 26,
+    "dim": 384
+  },
+  "pre": {
+    "refuse": "규범밖",
+    "partial": false,
+    "outside": [],
+    "why": [
+      "법령·규정을 묻는 말이 질문에 없습니다."
+    ],
+    "sparseTop5": 40.76963033894535
+  },
+  "evidence": [
+    {
+      "label": "S1",
+      "chunkId": "LBL-031",
+      "score": 0.7606618578336779,
+      "dense": 0.8226357560421389,
+      "sparse": 3.6201966775357084,
+      "via": "both",
+      "denseRank": 10,
+      "sparseRank": 25
+    },
+    {
+      "label": "S2",
+      "chunkId": "UNF-006",
+      "score": 0.7488830619154333,
+      "dense": 0.8258892263580547,
+      "sparse": 2.923786893228421,
+      "via": "both",
+      "denseRank": 7,
+      "sparseRank": 29
+    },
+    {
+      "label": "S3",
+      "chunkId": "LBL-083",
+      "score": 0.7,
+      "dense": 0.8402311277538144,
+      "sparse": 0,
+      "via": "dense",
+      "denseRank": 1,
+      "sparseRank": null
+    },
+    {
+      "label": "S4",
+      "chunkId": "UNF-011",
+      "score": 0.6978274558729534,
+      "dense": 0.8376233574652954,
+      "sparse": 0,
+      "via": "dense",
+      "denseRank": 2,
+      "sparseRank": null
+    },
+    {
+      "label": "S5",
+      "chunkId": "LBL-085",
+      "score": 0.6973613323886522,
+      "dense": 0.8370638553783141,
+      "sparse": 0,
+      "via": "dense",
+      "denseRank": 3,
+      "sparseRank": null
+    },
+    {
+      "label": "S6",
+      "chunkId": "UNF-010",
+      "score": 0.6938997513859854,
+      "dense": 0.8329088152216255,
+      "sparse": 0,
+      "via": "dense",
+      "denseRank": 4,
+      "sparseRank": null
+    },
+    {
+      "label": "S7",
+      "chunkId": "LBL-060",
+      "score": 0.6886543824488105,
+      "dense": 0.8266126405679581,
+      "sparse": 0,
+      "via": "dense",
+      "denseRank": 5,
+      "sparseRank": null
+    },
+    {
+      "label": "S8",
+      "chunkId": "LBL-084",
+      "score": 0.6883142355179975,
+      "dense": 0.8262043519404167,
+      "sparse": 0,
+      "via": "dense",
+      "denseRank": 6,
+      "sparseRank": null
+    }
+  ],
+  "answer": "",
+  "tokens": [],
+  "firstTokenMs": null,
+  "totalMs": null,
+  "verdict": {
+    "state": "규범밖",
+    "why": [
+      "법령·규정을 묻는 말이 질문에 없습니다."
+    ],
+    "limits": []
+  },
+  "rules": {
+    "citation": {
+      "pass": null,
+      "label": "해당 없음",
+      "detail": "답을 만들지 않았으므로 인용할 것이 없습니다."
+    },
+    "refusal": {
+      "pass": true,
+      "label": "정당한 거절",
+      "detail": "근거가 없어 답을 만들지 않았습니다 (규범밖). 지어내지 않은 것이므로 경계가 작동한 증거로 셉니다."
+    }
+  },
+  "judgement": null
+}

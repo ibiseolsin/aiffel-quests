@@ -1020,3 +1020,75 @@
   max-height: 14rem;
   overflow-y: auto;
 }
+
+/* ── S12: 녹화 데모 ──────────────────────────────────────────────────────────
+   **재생 중임이 한눈에 달라야 한다** (완료 기준: 실시간 답변과 시각적으로 구분된다).
+   색 하나로만 말하지 않는다 — 색을 못 보는 사람에게는 배너 글자와 「녹화」 칩,
+   그리고 점선 테두리가 같은 말을 한다. */
+
+.demo-pick {
+  border: 1px dashed var(--demo-border);
+  background: var(--demo-bg);
+  border-radius: 10px;
+  padding: 1rem 1.1rem;
+}
+
+.demo-list {
+  list-style: none;
+  margin: 0.6rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.demo-list li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+
+.demo-list button {
+  text-align: left;
+  border-color: var(--demo-border);
+  color: var(--demo);
+}
+
+.demo-bar {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+  justify-content: space-between;
+  background: var(--demo-bg);
+  border: 1px solid var(--demo-border);
+  border-left: 5px solid var(--demo);
+  border-radius: 8px;
+  padding: 0.7rem 0.9rem;
+  font-size: 0.92rem;
+}
+
+.demo-bar button {
+  flex: none;
+  border-color: var(--demo-border);
+  color: var(--demo);
+}
+
+/* 재생 중에는 본문 구역마다 왼쪽에 레일이 선다. 테두리가 없는 구역도 있으므로
+   `border-style` 을 바꾸는 것으로는 부족하다 */
+.page[data-demo='on'] .main > section {
+  border-left: 3px solid var(--demo-border);
+  padding-left: 0.9rem;
+}
+
+.demo-chip {
+  background: var(--demo);
+  color: var(--demo-bg);
+  border-radius: 4px;
+  padding: 0.05em 0.4em;
+  font-size: 0.8em;
+  letter-spacing: 0.02em;
+  margin-right: 0.35rem;
+}

@@ -1,0 +1,146 @@
+{
+  "version": 1,
+  "slug": "002-out-of-scope",
+  "recordedAt": "2026-08-30",
+  "corpusChunks": 365,
+  "question": "같은 스토어에서 화장품도 파는데 「주름 개선」이라고 써도 되나요?",
+  "engine": "ollama",
+  "model": "qwen3.5:2b",
+  "stageInput": {
+    "trace": {
+      "corpusSize": 365,
+      "candidates": 30,
+      "denseFound": 30,
+      "sparseFound": 30,
+      "merged": 58,
+      "both": 2,
+      "sparseWeight": 0.3,
+      "sparseTop5": 30.552264283985792
+    },
+    "ranked": 24,
+    "kept": 23,
+    "loaded": 8,
+    "embedMs": 9,
+    "dim": 384
+  },
+  "pre": {
+    "refuse": "코퍼스밖",
+    "partial": false,
+    "outside": [
+      {
+        "topic": "화장품 표시·광고",
+        "owner": "화장품법"
+      }
+    ],
+    "why": [
+      "범위 밖 주제가 걸렸습니다 — 화장품 표시·광고"
+    ],
+    "sparseTop5": 30.552264283985792
+  },
+  "evidence": [
+    {
+      "label": "S1",
+      "chunkId": "UNF-007",
+      "score": 0.8811936798844207,
+      "dense": 0.8302236481888801,
+      "sparse": 4.545495201895786,
+      "via": "both",
+      "denseRank": 8,
+      "sparseRank": 11
+    },
+    {
+      "label": "S2",
+      "chunkId": "LBL-081",
+      "score": 0.8256443733674892,
+      "dense": 0.8230965240383686,
+      "sparse": 3.33905940850937,
+      "via": "both",
+      "denseRank": 18,
+      "sparseRank": 25
+    },
+    {
+      "label": "S3",
+      "chunkId": "UNF-015",
+      "score": 0.7,
+      "dense": 0.8369687810124028,
+      "sparse": 0,
+      "via": "dense",
+      "denseRank": 1,
+      "sparseRank": null
+    },
+    {
+      "label": "S4",
+      "chunkId": "UNF-013",
+      "score": 0.6982982706223102,
+      "dense": 0.8349340747797485,
+      "sparse": 0,
+      "via": "dense",
+      "denseRank": 2,
+      "sparseRank": null
+    },
+    {
+      "label": "S5",
+      "chunkId": "UNF-012",
+      "score": 0.6979172429758206,
+      "dense": 0.8344784915728708,
+      "sparse": 0,
+      "via": "dense",
+      "denseRank": 3,
+      "sparseRank": null
+    },
+    {
+      "label": "S6",
+      "chunkId": "UNF-009",
+      "score": 0.6975868886778033,
+      "dense": 0.8340834969527083,
+      "sparse": 0,
+      "via": "dense",
+      "denseRank": 4,
+      "sparseRank": null
+    },
+    {
+      "label": "S7",
+      "chunkId": "LBL-080",
+      "score": 0.6972559030696848,
+      "dense": 0.8336877474941946,
+      "sparse": 0,
+      "via": "dense",
+      "denseRank": 5,
+      "sparseRank": null
+    },
+    {
+      "label": "S8",
+      "chunkId": "UNF-006",
+      "score": 0.695940513204642,
+      "dense": 0.8321149757057646,
+      "sparse": 0,
+      "via": "dense",
+      "denseRank": 6,
+      "sparseRank": null
+    }
+  ],
+  "answer": "",
+  "tokens": [],
+  "firstTokenMs": null,
+  "totalMs": null,
+  "verdict": {
+    "state": "코퍼스밖",
+    "why": [
+      "범위 밖 주제가 걸렸습니다 — 화장품 표시·광고"
+    ],
+    "limits": []
+  },
+  "rules": {
+    "citation": {
+      "pass": null,
+      "label": "해당 없음",
+      "detail": "답을 만들지 않았으므로 인용할 것이 없습니다."
+    },
+    "refusal": {
+      "pass": true,
+      "label": "정당한 거절",
+      "detail": "근거가 없어 답을 만들지 않았습니다 (코퍼스밖). 지어내지 않은 것이므로 경계가 작동한 증거로 셉니다."
+    }
+  },
+  "judgement": null
+}

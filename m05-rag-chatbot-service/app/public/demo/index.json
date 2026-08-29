@@ -1,0 +1,45 @@
+{
+  "version": 1,
+  "demos": [
+    {
+      "slug": "001-nutrition",
+      "question": "온라인에서만 파는 소분 견과류인데 영양성분 표시를 꼭 해야 하나요?",
+      "state": "근거충분",
+      "engine": "ollama",
+      "model": "qwen3.5:2b",
+      "recordedAt": "2026-08-30",
+      "corpusChunks": 365,
+      "calledEngine": true
+    },
+    {
+      "slug": "002-out-of-scope",
+      "question": "같은 스토어에서 화장품도 파는데 「주름 개선」이라고 써도 되나요?",
+      "state": "코퍼스밖",
+      "engine": "ollama",
+      "model": "qwen3.5:2b",
+      "recordedAt": "2026-08-30",
+      "corpusChunks": 365,
+      "calledEngine": false
+    },
+    {
+      "slug": "003-precautions",
+      "question": "소비자 안전을 위한 주의사항은 어떻게 표시해야 하나요?",
+      "state": "근거약함",
+      "engine": "ollama",
+      "model": "qwen3.5:2b",
+      "recordedAt": "2026-08-30",
+      "corpusChunks": 365,
+      "calledEngine": true
+    },
+    {
+      "slug": "004-not-legal",
+      "question": "쿠팡 수수료 빼면 남는 게 없는데 원가를 어떻게 낮출 수 있을까요?",
+      "state": "규범밖",
+      "engine": "ollama",
+      "model": "qwen3.5:2b",
+      "recordedAt": "2026-08-30",
+      "corpusChunks": 365,
+      "calledEngine": false
+    }
+  ]
+}
