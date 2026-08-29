@@ -795,3 +795,111 @@
     padding: 0.9rem;
   }
 }
+
+/* --- S7: 근거 상태 5단 --- */
+
+/* 다섯 단계 — 색만으로 말하지 않는다. 기호·글자·색이 같은 말을 한다 */
+.state {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.3rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  border: 1px solid currentColor;
+}
+
+.st-ok {
+  color: #2f7d4f;
+}
+
+.st-warn {
+  color: #a35c00;
+}
+
+.st-partial {
+  color: #4b6ea9;
+}
+
+.st-out,
+.st-none {
+  color: var(--muted);
+}
+
+@media (prefers-color-scheme: dark) {
+  .st-ok {
+    color: #7ecb9a;
+  }
+  .st-warn {
+    color: #e0a95c;
+  }
+  .st-partial {
+    color: #9db8e0;
+  }
+}
+
+/* 답변과 판정은 서로 다른 층이다 (PRD 5절 규칙 1) — 왼쪽 띠로 층을 가른다 */
+.verdict-state {
+  margin: 0.7rem 0 0;
+  padding: 0.6rem 0.8rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 3px solid currentColor;
+  border-radius: 6px;
+}
+
+.state-line {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0;
+}
+
+/* 한계 문장 — 배지 옆이 아니라 아래 줄에. 「⚠ 근거 약함」만 읽고 넘기면 안 된다 */
+.limit {
+  margin: 0.5rem 0 0;
+  padding: 0.5rem 0.7rem;
+  color: var(--warn-text);
+  background: var(--warn-bg);
+  border: 1px solid var(--warn-border);
+  border-radius: 6px;
+  font-size: 0.92rem;
+}
+
+.why {
+  margin: 0.4rem 0 0;
+  padding-left: 1.1rem;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.why > li {
+  margin: 0.2rem 0;
+}
+
+/* 범위 밖 — 답변 자리를 대신한다. 답변처럼 보이면 안 되므로 점선으로 다르게 그린다 */
+.scope-out {
+  padding: 0.9rem 1rem;
+  background: var(--surface);
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+}
+
+.scope-out h2 {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0;
+}
+
+.scope-out p {
+  margin: 0.35rem 0;
+}
+
+/* 범위 밖일 때의 조문 목록 — 근거가 아니라는 것이 한눈에 보여야 한다 */
+.dimmed .hits > li {
+  opacity: 0.62;
+}

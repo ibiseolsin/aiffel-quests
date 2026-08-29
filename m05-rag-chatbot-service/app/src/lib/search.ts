@@ -108,6 +108,14 @@ export type SearchTrace = {
   /** 두 경로 모두에 든 조문 수 */
   both: number
   sparseWeight: number
+  /**
+   * 희소(BM25) 상위 5개 **원점수의 합**. S7 의 임계값 ①이 이 값을 본다.
+   *
+   * 최고점 하나가 아니라 합인 이유: 도메인 밖 질문도 공통어 하나로 15점쯤은 얻는다
+   * (「음식점 영업신고」 최고점 15.1). 표기가 **여러 조문에 걸쳐** 겹치는지를 봐야
+   * 코퍼스가 그 주제를 실제로 다루는지가 드러난다 (evidence-state.ts 주석의 실측표).
+   */
+  sparseTop5: number
 }
 
 export function hybridSearchTraced(
@@ -169,6 +177,7 @@ export function hybridSearchTraced(
       merged: merged.size,
       both,
       sparseWeight,
+      sparseTop5: sparse.slice(0, 5).reduce((a, b) => a + b.score, 0),
     },
   }
 }

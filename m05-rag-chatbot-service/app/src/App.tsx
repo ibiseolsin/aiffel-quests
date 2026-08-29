@@ -43,6 +43,14 @@ import {
 import { buildPrompt } from './lib/prompt.ts'
 import { splitCitations } from './lib/citations.ts'
 import { isFutureEffective, locationLabel } from './lib/evidence.ts'
+import {
+  classify,
+  preClassify,
+  refusalText,
+  STATE_HINT,
+  type EvidenceState,
+  type PreVerdict,
+} from './lib/evidence-state.ts'
 import { EvidenceModal, type EvidenceView } from './components/EvidenceModal.tsx'
 import { SourceChips } from './components/SourceChips.tsx'
 import {
@@ -195,6 +203,34 @@ function Elapsed({ children }: { children: (ms: number) => React.ReactNode }) {
   return <>{children(ms)}</>
 }
 
+/**
+ * S7 — 근거 상태 배지. 다섯 단계를 **색만으로 말하지 않는다**: 기호·글자·색이 같은 말을 한다.
+ * 「근거 충분」과 「근거 약함」의 차이가 이 제품에서 가장 중요한 차이이기 때문이다.
+ */
+const STATE_MARK: Record<EvidenceState, string> = {
+  근거충분: '✓',
+  근거약함: '⚠',
+  일부범위밖: '◐',
+  코퍼스밖: '○',
+  규범밖: '—',
+}
+
+const STATE_CLASS: Record<EvidenceState, string> = {
+  근거충분: 'st-ok',
+  근거약함: 'st-warn',
+  일부범위밖: 'st-partial',
+  코퍼스밖: 'st-out',
+  규범밖: 'st-none',
+}
+
+function StateBadge({ state }: { state: EvidenceState }) {
+  return (
+    <span className={`state ${STATE_CLASS[state]}`}>
+      <span aria-hidden="true">{STATE_MARK[state]}</span> {state}
+    </span>
+  )
+}
+
 /** 콜드 스타트 실측값을 눈금으로 쓴 진행 막대. **예상이고 상한이 아니다** */
 function ColdBar({ ms }: { ms: number }) {
   const ratio = Math.min(ms / OLLAMA_COLD_MS, 1)
@@ -221,6 +257,10 @@ export default function App() {
   const [stages, setStages] = useState<Stage[] | null>(null)
   /** 열려 있는 근거 모달. `null` 이면 닫혀 있다 */
   const [evidenceView, setEvidenceView] = useState<EvidenceView | null>(null)
+
+  // ── S7: 근거 상태 5단 ─────────────────────────────────────────────────────
+  /** 답을 만들기 전의 범위 판정. **엔진을 부르지 않고** 검색 결과와 문구만으로 낸다 */
+  const [scope, setScope] = useState<PreVerdict | null>(null)
 
   // 기본은 Gemini (결정 D5). 방문자는 Ollama 를 깔고 있지 않다 —
   // 링크만 받은 사람에게 더 가벼운 준비를 요구하는 쪽이 기본이어야 한다
@@ -313,6 +353,7 @@ export default function App() {
     setSearching(true)
     setEngineError(null)
     setAnswer(null)
+    setScope(null)
     try {
       const extractor = await loadEmbedder(corpus.vectorMeta)
       const t0 = performance.now()
@@ -325,7 +366,10 @@ export default function App() {
       setHits(limited)
       setStages(searchStages(trace, found.length, kept.length, limited.length, embedMs, corpus.vectorMeta.dim))
       setElapsed(performance.now() - t0)
-      return limited
+      // S7 — 엔진을 부르기 **전에** 범위를 가린다. 범위 밖이면 답을 만들지 않는다
+      const pre = preClassify(q.trim(), corpus.meta, trace.sparseTop5)
+      setScope(pre)
+      return { hits: limited, pre }
     } catch (e) {
       setError((e as Error).message)
     } finally {
@@ -336,8 +380,15 @@ export default function App() {
   /** 검색 → 프롬프트 → 엔진. 근거 없이 답을 만들지 않는다 */
   const ask = async (q: string) => {
     if (!corpus) return
-    const found = await search(q)
-    if (!found?.length) return
+    const result = await search(q)
+    if (!result?.hits.length) return
+    const { hits: found, pre } = result
+
+    /* S7 — **코퍼스 밖·규범 밖이면 엔진을 부르지 않는다.**
+       모델에게 「범위 밖이라고 말해 줘」를 시키지 않는 이유는 PRD 8절 A3 이다: 그러면
+       모델이 다른 법령의 *내용*을 지어내고, 인용 규칙은 그걸 못 잡는다. 범위 안내는
+       고정 문자열로만 나간다. 덤으로 **키 없는 방문자도 이 판정까지는 볼 수 있다.** */
+    if (pre.refuse) return
 
     const labelled = found.map((h, i) => ({ chunk: corpus.chunks[h.index], label: `S${i + 1}` }))
     // 새 답변에는 아직 평가가 없다. 앞 답변의 평가가 이어 보이면 그게 거짓이 된다
@@ -521,6 +572,26 @@ export default function App() {
     const chunk = chunkById.get(e.chunkId)
     return chunk ? [{ label: e.label, chunk, cited: !!citations?.valid.includes(e.label) }] : []
   })
+
+  /**
+   * S7 — 최종 근거 상태. 답이 끝난 뒤에 낸다 (인용을 봐야 하므로).
+   * 답이 없고 범위 판정만 있으면 그 판정이 곧 상태다.
+   */
+  const verdict =
+    scope && answer?.done && citations
+      ? classify({
+          pre: scope,
+          evidence: chipItems.map((c) => ({
+            label: c.label,
+            chunk: c.chunk,
+            hit: hitByChunkId.get(c.chunk.id),
+          })),
+          citations,
+          cancelled: answer.cancelled,
+        })
+      : scope?.refuse
+        ? { state: scope.refuse as EvidenceState, why: scope.why, limits: [], outside: scope.outside }
+        : null
 
   const openEvidence = (label: string) => {
     const item = chipItems.find((c) => c.label === label)
@@ -940,6 +1011,34 @@ export default function App() {
           </section>
         )}
 
+        {/* S7 — 범위 밖. **답변 자리를 이것이 대신한다** (PRD 3절 F4: 답변 없음 + 범위 안내).
+            아래 문장은 전부 고정 문자열이고 모델이 쓴 것이 아니다 — 그래야 코퍼스 밖 법령의
+            *내용*이 새어 들어오지 않는다 (A3) */}
+        {scope?.refuse && (
+          <section className="scope-out">
+            <h2>
+              답하지 않았습니다 <StateBadge state={scope.refuse} />
+            </h2>
+            {refusalText(scope.refuse, scope.outside).map((line) => (
+              <p key={line}>{line}</p>
+            ))}
+            <p className="muted">{STATE_HINT[scope.refuse]}</p>
+            <details>
+              <summary className="muted">이 판정의 근거 보기</summary>
+              <ul className="why">
+                {scope.why.map((w) => (
+                  <li key={w}>{w}</li>
+                ))}
+              </ul>
+              <p className="muted">
+                이 판정은 <strong>검색 결과와 질문 문구만으로</strong> 냅니다 — 모델을 부르지
+                않았습니다. 소관 법령 이름은 <strong>사람이 검수한 고정 목록</strong>에서만
+                나오고, 목록에 없으면 아무 법령도 말하지 않습니다.
+              </p>
+            </details>
+          </section>
+        )}
+
         {engineError && (
           <section className="notice error">
             <h2>답변을 만들지 못했습니다</h2>
@@ -969,6 +1068,31 @@ export default function App() {
               {answer.text || <span className="muted">기다리는 중…</span>}
               {busy && <span className="caret" />}
             </div>
+            {/* S7 — 근거 상태. **답변 바로 아래**에 둔다: 답을 읽자마자 「이 답을 얼마나
+                믿어도 되는가」가 붙어야 한다. 한계 문장은 배지 옆이 아니라 아래 줄에 —
+                「⚠ 근거 약함」만 보고 넘기면 무엇이 약한지가 사라진다 */}
+            {answer.done && verdict && (
+              <div className={`verdict-state ${STATE_CLASS[verdict.state]}`}>
+                <p className="state-line">
+                  <StateBadge state={verdict.state} />
+                  <span className="muted">{STATE_HINT[verdict.state]}</span>
+                </p>
+                {verdict.limits.map((l) => (
+                  <p key={l} className="limit">
+                    {l}
+                  </p>
+                ))}
+                <details>
+                  <summary className="muted">이 판정의 근거 보기</summary>
+                  <ul className="why">
+                    {verdict.why.map((w) => (
+                      <li key={w}>{w}</li>
+                    ))}
+                  </ul>
+                </details>
+              </div>
+            )}
+
             {answer.done && citations && (
               <p className="muted">
                 {answer.cancelled && <strong>중단했습니다. </strong>}
@@ -1093,11 +1217,21 @@ export default function App() {
         )}
 
         {hits && corpus && (
-          <section>
+          <section className={scope?.refuse ? 'dimmed' : undefined}>
             <h2>
-              근거 {hits.length}개{' '}
+              {scope?.refuse ? '검색이 가져온 조문' : '근거'} {hits.length}개{' '}
               <span className="muted">· 줄을 누르면 조문 원문과 링크가 열립니다</span>
             </h2>
+            {/* 범위 밖 질문에서 이 목록을 「근거」라고 부르면 안 된다. 검색은 무엇에든
+                8개를 돌려주므로, 그걸 근거로 내놓으면 **없는 규정을 시사**하게 된다.
+                지우지도 않는다 — 판정이 무엇을 보고 나왔는지 확인할 수 있어야 한다 */}
+            {scope?.refuse && (
+              <p className="disclaimer" role="note">
+                <strong>이것들은 이 질문의 근거가 아닙니다.</strong> 검색은 어떤 질문에도 가장
+                가까운 조문을 돌려주므로, 범위 밖 질문에도 목록이 비지 않습니다. 판정이 무엇을
+                보고 나왔는지 확인하시라고 남겨 둡니다.
+              </p>
+            )}
             {/* 규칙 6 — 시행 예정 조문은 현행과 구분한다. 지금 코퍼스에 몇 개인지를
                 말해 두면, 구분 표시가 안 보일 때 그게 「기능이 없어서」가 아니라
                 「해당 조문이 없어서」임이 화면에서 확인된다 */}
