@@ -263,6 +263,28 @@ export function classify(input: {
         : `근거 중 ${pointers.map((p) => p.label).join(' ')} 은(는) ${named} 을(를) 가리키기만 하고, 그 본문은 이 자료에 없습니다. 구체적인 방법은 law.go.kr 에서 ${named} 를 직접 확인하세요.`,
     )
     sufficient = false
+  } else {
+    /* **인용되지 않았어도 실렸으면 걸린다** — FINDINGS 19절.
+       위 규칙의 입력은 「모델이 무엇을 인용했나」 하나뿐인데, 그 인용이 실행마다 흔들린다
+       (17절). 실측에서 같은 질문 세 번이 `[S1]`·`(S3)`·인용없음으로 갈렸고, 포인터 조문을
+       인용하지 않은 실행에서 **답변이 본문에 「별표 2 와 별표 3 의 구체적인 내용은 제공된
+       자료에 포함되어 있지 않습니다」라고 스스로 적었는데도** 근거충분이 떴다.
+       검색은 결정적이므로 **실린 것**을 보면 배지가 모델의 변덕에서 풀린다.
+       넓히는 대가를 재고 넣었다: 평가 9문항 + 수용 기준 3문항 중 포인터를 싣는 것은
+       **G2 하나뿐**이라(`scripts/probe-pointer.mjs`), 경고가 흔해지지 않는다. */
+    const loaded = evidence.filter((e) => isPointerOnly(e.chunk))
+    if (loaded.length) {
+      const named = [...new Set(loaded.flatMap((p) => pointedTable(p.chunk) ?? []))].join(' · ') || '별표'
+      why.push(
+        `답변이 인용하지는 않았지만, 이 질문에 걸린 조문 중 ${loaded
+          .map((p) => p.label)
+          .join(' ')} 은(는) 다른 문서를 가리키기만 합니다.`,
+      )
+      limits.push(
+        `이 자료에는 ${named} 의 본문이 없습니다. 답이 ${named} 의 내용을 말했다면 그건 이 자료에서 온 것이 아닙니다 — law.go.kr 에서 직접 확인하세요.`,
+      )
+      sufficient = false
+    }
   }
 
   // 임계값 ② — 마지막 문지기
