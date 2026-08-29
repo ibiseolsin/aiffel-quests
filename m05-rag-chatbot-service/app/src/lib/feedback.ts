@@ -24,6 +24,27 @@ export type Evidence = {
   path: string
 }
 
+/**
+ * 피드백에 함께 남기는 판정 스냅숏. 화면에 띄운 것과 **같은 값**이어야 하므로
+ * 규칙 층의 통과 여부와 LLM 층의 핵심 세 값만 담는다 (`citedIds` 는 담지 않는다 —
+ * 그 필드가 믿을 수 없다는 것이 실측이고, 같은 것을 규칙이 이미 결정적으로 잰다.
+ * FINDINGS 16절).
+ */
+export type VerdictSnapshot = {
+  /** S7 근거 상태 5단 */
+  state: string
+  /** 규칙 층 — `null` 은 「잴 것이 없음」 */
+  citationPass: boolean | null
+  refusalPass: boolean | null
+  /** LLM 층 — 판정에 실패했으면 `null` 이 아니라 `failed` 가 채워진다 */
+  grounded: boolean | null
+  hallucinated: boolean | null
+  scoreOutOf100: number | null
+  judgeModel: string | null
+  /** 판정이 실패했으면 그 이유. 실패도 기록이다 */
+  failed: string | null
+}
+
 export type FeedbackRecord = {
   id: string
   /** ISO 8601. 표시는 로컬 시각으로 하되 저장은 절대 시각으로 */
@@ -44,10 +65,13 @@ export type FeedbackRecord = {
   /** Gemini 창구 (studio / vertex / vertex-sa). Ollama 면 없다 */
   flavor?: string
   /**
-   * S8 의 자동 판정을 나중에 여기 붙인다. 지금은 판정이 없으므로 **null 로 정직하게 둔다** —
-   * 빈 객체를 넣으면 「판정했는데 아무것도 안 걸렸다」와 구분되지 않는다.
+   * 남길 때의 **자동 판정 결과** (S8). `null` 은 「판정하지 않았다」이지 「판정했는데
+   * 아무것도 안 걸렸다」가 아니다 — 그 둘을 구분하려고 빈 객체를 쓰지 않는다.
+   *
+   * 판정 결과를 **남길 때 같이 저장**하는 이유는 `cited` 와 같다: 나중에 다시 판정하면
+   * 그건 그때의 판정이고, 사람이 👎 를 누른 순간 화면에 있던 판정이 아니다.
    */
-  verdicts: null
+  verdicts: VerdictSnapshot | null
   /** 스키마 판(版). 나중에 필드가 바뀌면 이 값으로 갈라 읽는다 */
   v: 1
 }
@@ -91,6 +115,7 @@ export type SaveInput = {
   engine: string
   model: string
   flavor?: string
+  verdicts?: VerdictSnapshot | null
 }
 
 /** 저장 실패(용량 초과·프라이빗 모드)는 조용히 삼키지 않는다 — 남았다고 거짓말하게 된다 */
@@ -112,7 +137,7 @@ export function saveVote(input: SaveInput): { list: FeedbackRecord[]; record: Fe
     engine: input.engine,
     model: input.model,
     ...(input.flavor ? { flavor: input.flavor } : {}),
-    verdicts: null,
+    verdicts: input.verdicts ?? null,
     v: 1,
   }
 

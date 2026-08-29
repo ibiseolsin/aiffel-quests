@@ -528,6 +528,21 @@ export default function App() {
         engine: answer.engine,
         model: answer.model,
         flavor: answer.engine === 'gemini' ? flavor : undefined,
+        /* A6 — **누른 순간 화면에 있던 판정**을 같이 남긴다. 나중에 다시 판정하면 그건
+           그때의 값이지 사람이 이 표를 눌렀을 때 본 값이 아니다 (S10 이 `cited` 를 남길 때
+           같이 계산한 것과 같은 이유) */
+        verdicts: verdict
+          ? {
+              state: verdict.state,
+              citationPass: rules?.citation.pass ?? null,
+              refusalPass: rules?.refusal.pass ?? null,
+              grounded: judgment?.ok ? judgment.verdict.groundedInSources : null,
+              hallucinated: judgment?.ok ? judgment.verdict.hallucinated : null,
+              scoreOutOf100: judgment?.ok ? judgment.verdict.scoreOutOf100 : null,
+              judgeModel: judgment?.ok ? judgment.model : null,
+              failed: judgment && !judgment.ok ? judgment.message : null,
+            }
+          : null,
       })
       setLog(list)
       setVoteId(record.id)
@@ -1521,7 +1536,30 @@ export default function App() {
                   <p className="muted">
                     {r.cited.length ? `인용 ${r.cited.join(' ')}` : '인용 없음'}
                     {r.invalidCited.length ? ` · 없는 자료 인용 ${r.invalidCited.join(' ')}` : ''}
-                    {' · 자동 판정 없음 (S8)'}
+                  </p>
+                  {/* A6 — 사람 피드백이 **판정 결과와 함께** 보인다. 남길 때의 판정을
+                      그대로 되살린다. `null` 은 「그때 판정이 없었다」이지 「깨끗했다」가 아니다 */}
+                  <p className="muted">
+                    {r.verdicts ? (
+                      <>
+                        판정 — {r.verdicts.state}
+                        {' · 규칙 '}
+                        {r.verdicts.citationPass === true
+                          ? '인용 유효'
+                          : r.verdicts.citationPass === false
+                            ? '인용 문제'
+                            : '해당 없음'}
+                        {r.verdicts.failed
+                          ? ` · LLM 판정 실패 (${r.verdicts.failed})`
+                          : r.verdicts.grounded == null
+                            ? ' · LLM 판정 없음'
+                            : ` · LLM ${r.verdicts.grounded ? '자료에 근거함' : '자료 밖 내용'}${
+                                r.verdicts.hallucinated ? ' · 만들어 낸 내용 있음' : ''
+                              } · ${r.verdicts.scoreOutOf100}/100 (${r.verdicts.judgeModel})`}
+                      </>
+                    ) : (
+                      '이 기록에는 자동 판정이 없습니다 (판정 전에 남겼거나 옛 기록입니다)'
+                    )}
                   </p>
                   <details>
                     <summary className="muted">저장된 답변 전문 보기</summary>
