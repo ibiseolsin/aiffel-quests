@@ -89,6 +89,35 @@ export function hybridSearch(
   k: number,
   sparseWeight = DEFAULT_SPARSE_WEIGHT,
 ): HybridHit[] {
+  return hybridSearchTraced(corpus, queryVector, queryText, bm25, k, sparseWeight).hits
+}
+
+/**
+ * 검색이 **거쳐 온 단계의 숫자**. 화면이 「n개 조문 검색됨 · 방식」을 말하려면(PRD 5절)
+ * 결과만으로는 부족하다 — 후보가 몇이었고 병합에서 몇이 남았는지가 있어야 사용자가
+ * 파이프라인을 관찰할 수 있다 (평가 문항 3).
+ */
+export type SearchTrace = {
+  corpusSize: number
+  /** 각 경로가 후보로 본 개수 */
+  candidates: number
+  denseFound: number
+  sparseFound: number
+  /** 두 경로를 합친 뒤의 서로 다른 조문 수 */
+  merged: number
+  /** 두 경로 모두에 든 조문 수 */
+  both: number
+  sparseWeight: number
+}
+
+export function hybridSearchTraced(
+  corpus: Corpus,
+  queryVector: Float32Array,
+  queryText: string,
+  bm25: Bm25Index,
+  k: number,
+  sparseWeight = DEFAULT_SPARSE_WEIGHT,
+): { hits: HybridHit[]; trace: SearchTrace } {
   const dense = cosineTopK(corpus, queryVector, CANDIDATES)
   const sparse = bm25Search(bm25, queryText, CANDIDATES)
 
@@ -121,14 +150,27 @@ export function hybridSearch(
     h.sparseRank = i + 1
   })
 
+  let both = 0
   for (const h of merged.values()) {
     const d = denseMax > 0 ? h.dense / denseMax : 0
     const s = sparseMax > 0 ? h.sparse / sparseMax : 0
     h.score = (1 - sparseWeight) * d + sparseWeight * s
     h.via = h.denseRank && h.sparseRank ? 'both' : h.sparseRank ? 'sparse' : 'dense'
+    if (h.via === 'both') both++
   }
 
-  return [...merged.values()].sort((a, b) => b.score - a.score).slice(0, k)
+  return {
+    hits: [...merged.values()].sort((a, b) => b.score - a.score).slice(0, k),
+    trace: {
+      corpusSize: corpus.vectorMeta.count,
+      candidates: CANDIDATES,
+      denseFound: dense.length,
+      sparseFound: sparse.length,
+      merged: merged.size,
+      both,
+      sparseWeight,
+    },
+  }
 }
 
 /** 앞부분이 같은 형제 무리에서 한 질문에 최대 몇 개까지 보여 줄지 */

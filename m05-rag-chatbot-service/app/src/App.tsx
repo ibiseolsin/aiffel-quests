@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import './App.css'
-import { loadCorpus, type Corpus } from './lib/corpus.ts'
+import { loadCorpus, type Chunk, type Corpus } from './lib/corpus.ts'
 import { embedPassage, embedQuery, loadEmbedder, type LoadProgress } from './lib/embedder.ts'
 import { buildBm25, type Bm25Index } from './lib/bm25.ts'
 import {
@@ -40,13 +40,18 @@ import {
   type FeedbackRecord,
   type Vote,
 } from './lib/feedback.ts'
-import { buildPrompt, extractCitations } from './lib/prompt.ts'
+import { buildPrompt } from './lib/prompt.ts'
+import { splitCitations } from './lib/citations.ts'
+import { isFutureEffective, locationLabel } from './lib/evidence.ts'
+import { EvidenceModal, type EvidenceView } from './components/EvidenceModal.tsx'
+import { SourceChips } from './components/SourceChips.tsx'
 import {
   cosine,
-  hybridSearch,
+  hybridSearchTraced,
   limitFamilies,
   storedVector,
   type HybridHit,
+  type SearchTrace,
   type Via,
 } from './lib/search.ts'
 
@@ -108,6 +113,51 @@ type Answer = {
 type Probe = { cosine: number; ok: boolean } | null
 
 /**
+ * S6 — 검색이 거쳐 온 단계. PRD 5절의 「[검색 단계] n개 조문 검색됨 · 방식」이다.
+ *
+ * 결과만 보여 주면 사용자는 상위 8개가 **어디서 왔는지** 모른다. 하이브리드를 붙인 이유가
+ * 두 경로였으므로, 두 경로가 각각 몇 개를 보고 병합에서 몇이 남았는지가 화면에 있어야
+ * 파이프라인이 관찰된다 (평가 문항 3).
+ */
+type Stage = { title: string; detail: string }
+
+function searchStages(
+  trace: SearchTrace,
+  ranked: number,
+  kept: number,
+  loaded: number,
+  embedMs: number,
+  dim: number,
+): Stage[] {
+  return [
+    {
+      title: '질의 임베딩',
+      detail: `질문을 ${dim}차원 벡터로 (브라우저 안에서, ${embedMs.toFixed(0)}ms)`,
+    },
+    {
+      title: '의미 검색',
+      detail: `조문 ${trace.corpusSize}개와 코사인 비교 → 상위 ${trace.denseFound}개 후보`,
+    },
+    {
+      title: '표기 검색',
+      detail: `BM25 로 표기가 겹치는 조문 → 상위 ${trace.sparseFound}개 후보 (한글 2-gram)`,
+    },
+    {
+      title: '병합',
+      detail: `각 경로의 최고점으로 정규화한 뒤 가중합 (표기 ${trace.sparseWeight}) → 서로 다른 ${trace.merged}개, 그중 ${trace.both}개는 두 경로 모두에서`,
+    },
+    {
+      title: '형제 무리 제한',
+      detail:
+        ranked === kept
+          ? `앞머리가 같은 조문이 없어 ${kept}개 그대로`
+          : `앞 150자를 공유하는 무리는 2개까지 → ${ranked}개에서 ${ranked - kept}개 제외`,
+    },
+    { title: '프롬프트 적재', detail: `상위 ${loaded}개를 [S1]~[S${loaded}] 로 실었습니다` },
+  ]
+}
+
+/**
  * S9 — 연결 상태 배지. **색만으로 말하지 않는다** (색을 못 보는 사람이 있고, 「연결됨」과
  * 「미확인」의 차이가 이 제품에서는 중요하다). 그래서 모양·글자·색 셋이 같은 말을 한다.
  */
@@ -166,6 +216,11 @@ export default function App() {
   const [elapsed, setElapsed] = useState<number | null>(null)
   const [probe, setProbe] = useState<Probe>(null)
   const started = useRef(false)
+
+  // ── S6: 출처 공개 ──────────────────────────────────────────────────────────
+  const [stages, setStages] = useState<Stage[] | null>(null)
+  /** 열려 있는 근거 모달. `null` 이면 닫혀 있다 */
+  const [evidenceView, setEvidenceView] = useState<EvidenceView | null>(null)
 
   // 기본은 Gemini (결정 D5). 방문자는 Ollama 를 깔고 있지 않다 —
   // 링크만 받은 사람에게 더 가벼운 준비를 요구하는 쪽이 기본이어야 한다
@@ -262,10 +317,13 @@ export default function App() {
       const extractor = await loadEmbedder(corpus.vectorMeta)
       const t0 = performance.now()
       const v = await embedQuery(extractor, q.trim(), corpus.vectorMeta)
-      const found = hybridSearch(corpus, v, q.trim(), bm25, TOP_K * 3)
+      const embedMs = performance.now() - t0
+      const { hits: found, trace } = hybridSearchTraced(corpus, v, q.trim(), bm25, TOP_K * 3)
       // 앞머리가 같은 형제 청크가 결과를 뒤덮지 않게 무리마다 개수를 제한한다
-      const limited = limitFamilies(found, (i) => corpus.chunks[i].text).slice(0, TOP_K)
+      const kept = limitFamilies(found, (i) => corpus.chunks[i].text)
+      const limited = kept.slice(0, TOP_K)
       setHits(limited)
+      setStages(searchStages(trace, found.length, kept.length, limited.length, embedMs, corpus.vectorMeta.dim))
       setElapsed(performance.now() - t0)
       return limited
     } catch (e) {
@@ -373,7 +431,7 @@ export default function App() {
    */
   const vote = (v: Vote) => {
     if (!answer) return
-    const cited = extractCitations(answer.text)
+    const { ids: cited, invalid } = splitCitations(answer.text, answer.labels)
     try {
       const { list, record } = saveVote({
         id: voteId,
@@ -383,7 +441,7 @@ export default function App() {
         cancelled: answer.cancelled,
         evidence: answer.evidence,
         cited,
-        invalidCited: cited.filter((c) => !answer.labels.includes(c)),
+        invalidCited: invalid,
         engine: answer.engine,
         model: answer.model,
         flavor: answer.engine === 'gemini' ? flavor : undefined,
@@ -436,6 +494,39 @@ export default function App() {
    */
   const geminiAnswered =
     answer?.engine === 'gemini' && !!answer.text && answer.model === geminiModel.trim()
+
+  /** 청크를 ID 로 찾는다. 출처 칩은 답변이 저장해 둔 `chunkId` 로 조문을 되찾는다 —
+   *  라벨(`S3`)은 그 답변 안에서만 유효한 이름이라 조문의 신원이 되지 못한다 */
+  const chunkById = useMemo(() => {
+    const m = new Map<string, Chunk>()
+    for (const c of corpus?.chunks ?? []) m.set(c.id, c)
+    return m
+  }, [corpus])
+
+  /** 지금 화면의 근거가 어느 검색 경로로 몇 위에 들어왔는지. 모달이 이걸 같이 보여 준다 */
+  const hitByChunkId = useMemo(() => {
+    const m = new Map<string, HybridHit>()
+    for (const h of hits ?? []) if (corpus) m.set(corpus.chunks[h.index].id, h)
+    return m
+  }, [hits, corpus])
+
+  /**
+   * 지금 답변의 인용. **화면·피드백·(S8 의) 판정이 같은 값을 본다** — 세 곳이 각자 세면
+   * 「인용 S1 S3」과 배지가 조용히 어긋난다 (citations.ts 주석)
+   */
+  const citations = answer ? splitCitations(answer.text, answer.labels) : null
+
+  /** 출처 칩 항목. 답변이 받은 근거 순서 그대로 두고, 인용 여부만 표시로 가른다 */
+  const chipItems = (answer?.evidence ?? []).flatMap((e) => {
+    const chunk = chunkById.get(e.chunkId)
+    return chunk ? [{ label: e.label, chunk, cited: !!citations?.valid.includes(e.label) }] : []
+  })
+
+  const openEvidence = (label: string) => {
+    const item = chipItems.find((c) => c.label === label)
+    if (!item) return
+    setEvidenceView({ ...item, hit: hitByChunkId.get(item.chunk.id) })
+  }
 
   /** 지금 답변에 남긴 평가(있으면). 기록 자체를 보여 준다 — 「눌렸다」는 화면 상태가 아니라 저장된 사실이다 */
   const currentVote = voteId ? (log.find((r) => r.id === voteId) ?? null) : null
@@ -791,6 +882,14 @@ export default function App() {
         {ready && (
           <section>
             <h2>질문</h2>
+            {/* PRD 5절 규칙 5 — 멀티턴을 안 하는 것과 숨기는 것은 다르다.
+                앞 질문을 기억한다고 믿으면 「그럼 그 경우는요?」 같은 후속 질문이
+                엉뚱한 근거를 받는다 */}
+            <p className="muted" role="note">
+              ⓘ <strong>질문은 하나씩 독립적으로 처리됩니다.</strong> 앞 질문의 내용을 기억하지
+              않으므로, 후속 질문도 그 자체로 완결된 문장으로 적어 주세요. 근거 추적이 흐려지는
+              것을 막으려고 일부러 이렇게 두었습니다.
+            </p>
             <form
               className="ask"
               onSubmit={(e) => {
@@ -870,18 +969,29 @@ export default function App() {
               {answer.text || <span className="muted">기다리는 중…</span>}
               {busy && <span className="caret" />}
             </div>
-            {answer.done && (
+            {answer.done && citations && (
               <p className="muted">
                 {answer.cancelled && <strong>중단했습니다. </strong>}
-                {(() => {
-                  const cited = extractCitations(answer.text)
-                  const bad = cited.filter((c) => !answer.labels.includes(c))
-                  if (!cited.length) return '답변이 근거 번호를 달지 않았습니다.'
-                  return `인용 ${cited.join(' ')}${
-                    bad.length ? ` · 없는 자료를 인용했습니다: ${bad.join(' ')}` : ''
-                  }`
-                })()}
+                {citations.ids.length
+                  ? `인용 ${citations.ids.join(' ')}${
+                      citations.invalid.length
+                        ? ` · 없는 자료를 인용했습니다: ${citations.invalid.join(' ')}`
+                        : ''
+                    }`
+                  : '답변이 근거 번호를 달지 않았습니다.'}
               </p>
+            )}
+
+            {/* S6 — 출처 칩. **답변 바로 아래**에 둔다: 답을 읽은 직후가 「무엇을 근거로
+                했나」를 묻는 자리이고, 근거 목록까지 스크롤해야 알 수 있으면 검증 경로가
+                아니라 부록이 된다 (PRD 5절 규칙 2) */}
+            {answer.done && citations && chipItems.length > 0 && (
+              <SourceChips
+                items={chipItems}
+                invalid={citations.invalid}
+                lenient={citations.lenient}
+                onOpen={openEvidence}
+              />
             )}
             {/* ── 판정 영역 ────────────────────────────────────────────────────
                 A6 은 「피드백을 남기면 **판정 결과와 함께** 보인다」다. 그래서 사람 피드백을
@@ -961,29 +1071,85 @@ export default function App() {
           </section>
         )}
 
-        {hits && corpus && (
+        {/* S6 — 검색 단계. 결과만 보여 주면 상위 8개가 어디서 왔는지 알 수 없다 */}
+        {stages && (
           <section>
             <h2>
-              근거 {hits.length}개{' '}
+              검색 단계{' '}
               {elapsed != null && (
                 <span className="muted">· 질의 임베딩+검색 {elapsed.toFixed(0)}ms</span>
               )}
             </h2>
+            <ol className="steps">
+              {stages.map((s, i) => (
+                <li key={s.title}>
+                  <span className="step-n">{i + 1}</span>
+                  <span className="step-t">{s.title}</span>
+                  <span className="muted">{s.detail}</span>
+                </li>
+              ))}
+            </ol>
+          </section>
+        )}
+
+        {hits && corpus && (
+          <section>
+            <h2>
+              근거 {hits.length}개{' '}
+              <span className="muted">· 줄을 누르면 조문 원문과 링크가 열립니다</span>
+            </h2>
+            {/* 규칙 6 — 시행 예정 조문은 현행과 구분한다. 지금 코퍼스에 몇 개인지를
+                말해 두면, 구분 표시가 안 보일 때 그게 「기능이 없어서」가 아니라
+                「해당 조문이 없어서」임이 화면에서 확인된다 */}
+            <p className="muted">
+              {hits.some((h) => isFutureEffective(corpus.chunks[h.index])) ? (
+                <>
+                  <strong>시행 예정 조문이 섞여 있습니다</strong> — 아래에서 주황색{' '}
+                  <span className="eff eff-future">시행 예정</span> 표시가 붙은 것은 지금
+                  적용되지 않습니다.
+                </>
+              ) : (
+                <>
+                  이 결과의 조문은 <strong>전부 오늘 기준 시행 중</strong>입니다. 시행 예정
+                  조문이 걸리면 <span className="eff eff-future">시행 예정</span> 으로 따로
+                  표시됩니다.
+                </>
+              )}
+            </p>
             <ol className="hits">
-              {hits.map(({ index, score, via, dense, sparse, denseRank, sparseRank }) => {
+              {hits.map((h) => {
+                const { index, score, via, dense, sparse, denseRank, sparseRank } = h
                 const c = corpus.chunks[index]
+                const future = isFutureEffective(c)
+                const label = answer?.evidence.find((e) => e.chunkId === c.id)?.label
                 return (
                   <li key={c.id}>
-                    <div className="hit-head">
-                      <span className="score">{score.toFixed(3)}</span>
-                      <span className={`via via-${via}`}>{VIA_LABEL[via]}</span>
-                      <span className="kind">{c.sourceKind}</span>
-                      <span className="src">{c.source}</span>
-                      <span className="loc">{c.path}</span>
-                    </div>
+                    <button
+                      type="button"
+                      className="hit-open"
+                      onClick={() =>
+                        setEvidenceView({
+                          chunk: c,
+                          hit: h,
+                          label,
+                          cited: label ? citations?.valid.includes(label) : undefined,
+                        })
+                      }
+                    >
+                      <span className="hit-head">
+                        {label && <span className="chip-label">{label}</span>}
+                        <span className="score">{score.toFixed(3)}</span>
+                        <span className={`via via-${via}`}>{VIA_LABEL[via]}</span>
+                        <span className="kind">{c.sourceKind}</span>
+                        <span className="src">{c.source}</span>
+                        <span className="loc">{locationLabel(c)}</span>
+                        <span className={future ? 'eff eff-future' : 'eff eff-now'}>
+                          {future ? `시행 예정 ${c.effectiveDate}` : `시행 ${c.effectiveDate}`}
+                        </span>
+                      </span>
+                    </button>
                     <p className="hit-text">{c.text}</p>
                     <div className="hit-foot">
-                      <span className="muted">시행 {c.effectiveDate}</span>
                       <span className="muted">
                         의미 {denseRank ? `${denseRank}위` : '후보 밖'} (코사인{' '}
                         {dense.toFixed(3)}) · 표기 {sparseRank ? `${sparseRank}위` : '후보 밖'}{' '}
@@ -1075,6 +1241,9 @@ export default function App() {
           </section>
         )}
       </main>
+
+      {/* S6 — 근거 모달. 화면 어디서 열든 하나만 있으면 된다 */}
+      <EvidenceModal view={evidenceView} onClose={() => setEvidenceView(null)} />
 
       <footer className="footer">
         {corpus && (

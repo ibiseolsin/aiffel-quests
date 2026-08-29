@@ -46,7 +46,8 @@ import { pipeline } from '@huggingface/transformers'
 import { MODELS } from './embed-models.mjs'
 import { buildBm25 } from '../src/lib/bm25.ts'
 import { DEFAULT_SPARSE_WEIGHT, hybridSearch, limitFamilies } from '../src/lib/search.ts'
-import { buildPrompt, extractCitations } from '../src/lib/prompt.ts'
+import { buildPrompt } from '../src/lib/prompt.ts'
+import { extractCitations } from '../src/lib/citations.ts'
 import { EVAL_SET, PROBE_SET, STATES_EXPECTING_REFUSAL, STATES_NEEDING_EVIDENCE, verifyEvalSet } from './eval-set.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))

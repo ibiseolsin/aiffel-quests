@@ -581,3 +581,217 @@
   font-size: 0.9rem;
   color: var(--muted);
 }
+
+/* --- S6: 출처 공개 UI --- */
+
+/* 검색 단계 — 번호 → 이름 → 실측 숫자. 세 칸이 늘 같은 자리에 있어야 훑어 읽힌다 */
+.steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.steps > li {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  font-size: 0.9rem;
+}
+
+.step-n {
+  flex: none;
+  width: 1.4rem;
+  height: 1.4rem;
+  line-height: 1.4rem;
+  text-align: center;
+  border-radius: 50%;
+  font-size: 0.75rem;
+  color: var(--bg);
+  background: var(--accent);
+}
+
+.step-t {
+  flex: none;
+  min-width: 7rem;
+  font-weight: 600;
+}
+
+/* 출처 칩 */
+.chips-block {
+  margin: 0.6rem 0 0;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.4rem;
+}
+
+.srcchip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  max-width: 100%;
+  padding: 0.3rem 0.55rem;
+  font: inherit;
+  font-size: 0.82rem;
+  text-align: left;
+  color: var(--muted);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.srcchip:hover {
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+/* 인용된 근거는 진하게 — 「답변이 실제로 쓴 것」과 「실렸을 뿐인 것」은 다른 사실이다 */
+.srcchip.on {
+  color: var(--text);
+  border-color: var(--accent);
+  border-width: 2px;
+  padding: calc(0.3rem - 1px) calc(0.55rem - 1px);
+}
+
+/* 없는 자료 인용 — 누를 곳이 없다. 가리킬 조문이 없기 때문이다 */
+.srcchip.bad {
+  cursor: default;
+  color: var(--warn-text);
+  background: var(--warn-bg);
+  border-color: var(--warn-border);
+}
+
+.chip-label {
+  flex: none;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.chip-src {
+  flex: none;
+  color: var(--text);
+}
+
+.chip-loc {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 시행일 — 색만으로 말하지 않는다. 시행 예정에는 테두리와 글자가 같이 붙는다 */
+.eff {
+  flex: none;
+  border-radius: 4px;
+  padding: 0 0.35rem;
+  font-size: 0.75rem;
+}
+
+.eff-now {
+  color: var(--muted);
+  border: 1px solid var(--border);
+}
+
+.eff-future {
+  color: var(--warn-text);
+  background: var(--warn-bg);
+  border: 1px solid var(--warn-border);
+  font-weight: 700;
+}
+
+/* 근거 줄 전체가 버튼이다 — 「누를 수 있는 곳」을 작게 두면 검증 경로가 좁아진다 */
+.hit-open {
+  display: block;
+  width: 100%;
+  padding: 0;
+  font: inherit;
+  text-align: left;
+  color: inherit;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.hit-open:hover .loc,
+.hit-open:hover .src {
+  color: var(--accent);
+}
+
+.cited-yes {
+  color: var(--accent);
+  font-weight: 700;
+  font-size: 0.8rem;
+}
+
+.cited-no {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+/* 근거 모달 */
+.modal {
+  width: min(46rem, calc(100vw - 2rem));
+  max-height: calc(100vh - 4rem);
+  padding: 1.1rem 1.2rem;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.modal::backdrop {
+  background: rgb(0 0 0 / 45%);
+}
+
+.modal-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.modal-head > div {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.modal-law {
+  margin: 0.7rem 0 0.2rem;
+  font-size: 1.05rem;
+}
+
+.modal-loc {
+  margin: 0 0 0.7rem;
+}
+
+/* 조문 원문 — 검증의 대상이므로 답변보다 읽기 쉬워야 한다 */
+.modal-text {
+  margin: 0 0 0.8rem;
+  padding: 0.8rem;
+  line-height: 1.75;
+  white-space: pre-line;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+
+@media (max-width: 480px) {
+  .step-t {
+    min-width: 0;
+  }
+  .modal {
+    width: calc(100vw - 1rem);
+    padding: 0.9rem;
+  }
+}

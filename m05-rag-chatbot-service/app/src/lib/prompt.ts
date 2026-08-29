@@ -74,19 +74,3 @@ ${sources}
 [질문]
 ${question}`
 }
-
-/**
- * 답변 안의 자료 인용을 뽑는다. 판정(S8)과 출처 강조(S6)가 이걸 쓴다.
- *
- * **표기 형태에 관대하다.** 프롬프트가 `[S1]` 을 요구하지만 2B 모델은 `(S1, S5)` 로도 쓴다
- * (실측). 여기서 재려는 것은 「모델이 근거를 댔는가」이지 「대괄호를 썼는가」가 아니므로,
- * 형태가 달라도 인용으로 센다. 인용의 **유효성**(그 자료가 실제로 있는가)은 판정이 따로 본다.
- */
-export function extractCitations(answer: string): string[] {
-  const found = new Set<string>()
-  // [S1] · (S1) · [S1, S3] · (S1,S5) · S1 뒤에 구두점이 오는 경우까지
-  for (const m of answer.matchAll(/[[(]\s*(S\d+(?:\s*[,·]\s*S\d+)*)\s*[\])]/g)) {
-    for (const one of m[1].matchAll(/S\d+/g)) found.add(one[0])
-  }
-  return [...found].sort((a, b) => Number(a.slice(1)) - Number(b.slice(1)))
-}
