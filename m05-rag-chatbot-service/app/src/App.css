@@ -903,3 +903,120 @@
 .dimmed .hits > li {
   opacity: 0.62;
 }
+
+/* --- S8: 판정 두 층 --- */
+
+/* PRD 5절 규칙 4 — 결정적 판정과 확률적 판정을 **같은 모양으로 그리지 않는다**.
+   규칙은 각진 상자, LLM 은 둥근 알약. 색이 아니라 모양이 층을 말한다 */
+
+.verdict-rule {
+  border-style: solid;
+}
+
+.verdict-llm {
+  border-style: dashed;
+}
+
+.rule-line {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  margin: 0 0 0.5rem;
+}
+
+/* 각진 상자 — 모서리를 깎지 않는다 */
+.rule {
+  align-self: flex-start;
+  padding: 0.15rem 0.45rem;
+  border-radius: 0;
+  border: 1px solid currentColor;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.rule-ok {
+  color: #2f7d4f;
+}
+
+.rule-bad {
+  color: #b3261e;
+}
+
+.rule-na {
+  color: var(--muted);
+}
+
+/* 둥근 알약 — 규칙 배지와 한눈에 다르게 */
+.pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-bottom: 0.4rem;
+}
+
+.pill {
+  display: inline-block;
+  margin: 0 0 0.35rem;
+  padding: 0.2rem 0.7rem;
+  border-radius: 999px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  border: 1px solid transparent;
+}
+
+.pill-ok {
+  color: #205c3b;
+  background: #e3f2e8;
+}
+
+.pill-bad {
+  color: #7d1c16;
+  background: #fbe6e4;
+}
+
+.pill-score {
+  color: var(--text);
+  background: var(--bg);
+  border-color: var(--border);
+  font-variant-numeric: tabular-nums;
+}
+
+.pill-fail,
+.pill-na {
+  color: var(--muted);
+  background: var(--bg);
+  border-color: var(--border);
+}
+
+@media (prefers-color-scheme: dark) {
+  .rule-ok {
+    color: #7ecb9a;
+  }
+  .rule-bad {
+    color: #f2b8b5;
+  }
+  .pill-ok {
+    color: #b9e7cb;
+    background: #1e3a2b;
+  }
+  .pill-bad {
+    color: #f2b8b5;
+    background: #3d1f1c;
+  }
+}
+
+.small {
+  font-size: 0.82rem;
+}
+
+/* 판정 코멘트는 모델이 쓴 글이다 — 답변 본문과 섞이지 않게 안으로 들여 둔다 */
+.judge-comment {
+  margin: 0.4rem 0;
+  padding: 0.5rem 0.7rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 0.88rem;
+  max-height: 14rem;
+  overflow-y: auto;
+}

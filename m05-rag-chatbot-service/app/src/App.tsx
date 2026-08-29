@@ -51,6 +51,7 @@ import {
   type EvidenceState,
   type PreVerdict,
 } from './lib/evidence-state.ts'
+import { judge, ruleVerdicts, type JudgeOutcome, type RuleVerdict } from './lib/judge.ts'
 import { EvidenceModal, type EvidenceView } from './components/EvidenceModal.tsx'
 import { SourceChips } from './components/SourceChips.tsx'
 import {
@@ -223,6 +224,20 @@ const STATE_CLASS: Record<EvidenceState, string> = {
   규범밖: 'st-none',
 }
 
+/** 규칙 판정 한 줄. **각진 상자**로 그린다 — 옆의 LLM 알약과 모양이 달라야 한다 */
+function RuleChip({ name, v }: { name: string; v: RuleVerdict }) {
+  const mark = v.pass === true ? '✓' : v.pass === false ? '✗' : '–'
+  const cls = v.pass === true ? 'rule-ok' : v.pass === false ? 'rule-bad' : 'rule-na'
+  return (
+    <p className="rule-line">
+      <span className={`rule ${cls}`}>
+        <span aria-hidden="true">{mark}</span> {name} — {v.label}
+      </span>
+      <span className="muted small">{v.detail}</span>
+    </p>
+  )
+}
+
 function StateBadge({ state }: { state: EvidenceState }) {
   return (
     <span className={`state ${STATE_CLASS[state]}`}>
@@ -262,6 +277,13 @@ export default function App() {
   /** 답을 만들기 전의 범위 판정. **엔진을 부르지 않고** 검색 결과와 문구만으로 낸다 */
   const [scope, setScope] = useState<PreVerdict | null>(null)
 
+  // ── S8: LLM 근거성 판정 ───────────────────────────────────────────────────
+  const [judgment, setJudgment] = useState<JudgeOutcome | null>(null)
+  const [judging, setJudging] = useState(false)
+  /** 어느 답변을 판정했는지. 답변이 바뀌면 지난 판정이 남아 있으면 안 된다 */
+  const judgedFor = useRef<string | null>(null)
+  const judgeAbort = useRef<AbortController | null>(null)
+
   // 기본은 Gemini (결정 D5). 방문자는 Ollama 를 깔고 있지 않다 —
   // 링크만 받은 사람에게 더 가벼운 준비를 요구하는 쪽이 기본이어야 한다
   const [engine, setEngine] = useState<EngineKind>('gemini')
@@ -284,6 +306,26 @@ export default function App() {
   const abort = useRef<AbortController | null>(null)
 
   const [bm25, setBm25] = useState<Bm25Index | null>(null)
+
+  /**
+   * 지금 고른 엔진의 설정. **답변 생성과 판정이 같은 것을 본다** — PRD 3절 F5 가
+   * 「LLM 판정은 현재 선택된 엔진으로 돌린다」이고, 두 벌로 두면 화면이 말하는 엔진과
+   * 실제로 부른 엔진이 조용히 갈릴 수 있다.
+   */
+  const engineConfig = useMemo(
+    () =>
+      engine === 'gemini'
+        ? {
+            ...ENGINE_DEFAULTS.gemini,
+            apiKey,
+            flavor,
+            model: geminiModel.trim(),
+            serviceAccount: serviceAccount ?? undefined,
+            location: location_,
+          }
+        : { ...ENGINE_DEFAULTS.ollama },
+    [engine, apiKey, flavor, geminiModel, serviceAccount, location_],
+  )
 
   // ── S10: 사람 피드백 ────────────────────────────────────────────────────────
   // 첫 렌더에서 바로 읽는다 — 새로고침 직후에도 「남긴 피드백」이 보여야 하고,
@@ -404,17 +446,7 @@ export default function App() {
       now: new Date(),
     })
 
-    const config =
-      engine === 'gemini'
-        ? {
-            ...ENGINE_DEFAULTS.gemini,
-            apiKey,
-            flavor,
-            model: geminiModel.trim(),
-            serviceAccount: serviceAccount ?? undefined,
-            location: location_,
-          }
-        : { ...ENGINE_DEFAULTS.ollama }
+    const config = engineConfig
 
     abort.current?.abort()
     const controller = new AbortController()
@@ -592,6 +624,64 @@ export default function App() {
       : scope?.refuse
         ? { state: scope.refuse as EvidenceState, why: scope.why, limits: [], outside: scope.outside }
         : null
+
+  /** S8 규칙 층 — 결정적이므로 엔진 없이 즉시 나온다 */
+  const rules =
+    verdict && citations
+      ? ruleVerdicts({ state: verdict.state, citations, cancelled: !!answer?.cancelled })
+      : verdict
+        ? ruleVerdicts({
+            state: verdict.state,
+            citations: { ids: [], valid: [], invalid: [], lenient: false },
+            cancelled: false,
+          })
+        : null
+
+  const runJudge = useCallback(async () => {
+    if (!answer?.done || !corpus) return
+    judgeAbort.current?.abort()
+    const controller = new AbortController()
+    judgeAbort.current = controller
+    setJudging(true)
+    const evidence = answer.evidence.flatMap((e) => {
+      const chunk = chunkById.get(e.chunkId)
+      return chunk ? [{ label: e.label, chunk }] : []
+    })
+    const out = await judge(
+      engineConfig,
+      { question: answer.question, answer: answer.text, evidence },
+      controller.signal,
+    )
+    if (controller.signal.aborted) return
+    setJudgment(out)
+    setJudging(false)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [answer, corpus, chunkById, engineConfig])
+
+  /**
+   * A5 — **모든 응답에 판정 배지가 붙는다.** 그래서 사람이 누르기를 기다리지 않고
+   * 답이 끝나는 즉시 돈다. 중단된 답변은 판정하지 않는다 (잴 문장이 온전하지 않다).
+   *
+   * `judgedFor` 로 한 답변당 한 번만 돈다 — 스트리밍 중 매 토큰마다 부르면 안 되고,
+   * 재렌더로 다시 부르면 같은 답에 다른 배지가 붙는다.
+   */
+  useEffect(() => {
+    if (!answer?.done || answer.cancelled || !answer.text) return
+    const key = `${answer.question}::${answer.text.length}::${answer.model}`
+    if (judgedFor.current === key) return
+    judgedFor.current = key
+    setJudgment(null)
+    runJudge()
+  }, [answer, runJudge])
+
+  /** 새 질문이 시작되면 지난 판정을 지운다 — 앞 답변의 배지가 남으면 그게 거짓이 된다 */
+  useEffect(() => {
+    if (!answer) {
+      judgedFor.current = null
+      setJudgment(null)
+      setJudging(false)
+    }
+  }, [answer])
 
   const openEvidence = (label: string) => {
     const item = chipItems.find((c) => c.label === label)
@@ -1023,6 +1113,31 @@ export default function App() {
               <p key={line}>{line}</p>
             ))}
             <p className="muted">{STATE_HINT[scope.refuse]}</p>
+
+            {/* A5 — 판정 배지는 **모든 응답**에 붙는다. 답변만이 아니라 범위 안내에도.
+                거절은 규칙으로 판정되고, LLM 은 잴 문장이 없으므로 「해당 없음」이다 */}
+            {rules && (
+              <div className="verdicts">
+                <div className="verdict verdict-rule">
+                  <h3>
+                    규칙 판정 <span className="muted">· 결정적 · 엔진 없이</span>
+                  </h3>
+                  <RuleChip name="거절 여부" v={rules.refusal} />
+                  <RuleChip name="인용 유효성" v={rules.citation} />
+                </div>
+                <div className="verdict verdict-llm">
+                  <h3>
+                    LLM 판정 <span className="muted">· 확률적</span>
+                  </h3>
+                  <p className="pill pill-na">해당 없음</p>
+                  <p className="muted small">
+                    답을 만들지 않아 근거성을 잴 문장이 없습니다. <strong>엔진을 부르지
+                    않았습니다</strong> — 키가 없어도 이 판정까지는 보입니다.
+                  </p>
+                </div>
+              </div>
+            )}
+
             <details>
               <summary className="muted">이 판정의 근거 보기</summary>
               <ul className="why">
@@ -1128,12 +1243,82 @@ export default function App() {
                 한다(PRD 5절 규칙 4) — 그 구분은 S8 이 정한다. */}
             {answer.done && (
               <div className="verdicts">
-                <div className="verdict verdict-pending">
-                  <h3>자동 판정</h3>
-                  <p className="muted">
-                    <strong>아직 없습니다 (S8).</strong> 규칙(인용 유효성·거절)과 LLM(근거성)
-                    배지가 이 자리에 붙습니다.
-                  </p>
+                {/* ── S8 규칙 층 — 결정적. 각진 상자로 그린다 (PRD 5절 규칙 4) ── */}
+                <div className="verdict verdict-rule">
+                  <h3>
+                    규칙 판정 <span className="muted">· 결정적 · 엔진 없이</span>
+                  </h3>
+                  {rules && (
+                    <>
+                      <RuleChip name="인용 유효성" v={rules.citation} />
+                      <RuleChip name="거절 여부" v={rules.refusal} />
+                      <p className="muted small">
+                        <strong>이 규칙이 보는 것은 집합 소속뿐입니다.</strong> 번호는 맞고
+                        내용을 왜곡한 답, 무관한 조문을 방패로 든 답은 <strong>통과합니다</strong>
+                        — 그건 옆의 LLM 판정과 사람이 봅니다.
+                      </p>
+                    </>
+                  )}
+                </div>
+
+                {/* ── S8 LLM 층 — 확률적. 둥근 알약으로 그려 규칙과 모양을 가른다 ── */}
+                <div className="verdict verdict-llm">
+                  <h3>
+                    LLM 판정{' '}
+                    <span className="muted">
+                      · 확률적 · {ENGINE_LABEL[engine]}
+                      {judgment && ` ${judgment.model}`}
+                    </span>
+                  </h3>
+                  {judging && <p className="muted">근거성을 재는 중…</p>}
+                  {!judging && !judgment && (
+                    <p className="muted">답변이 끝나면 자동으로 판정합니다.</p>
+                  )}
+                  {judgment?.ok === false && (
+                    <>
+                      {/* 판정이 실패해도 **답변과 나머지 UI 는 그대로 둔다** (PRD 5절 규칙 3) */}
+                      <p className="pill pill-fail">판정 실패</p>
+                      <p className="muted preline">
+                        {judgment.message}
+                        {judgment.hint ? `\n${judgment.hint}` : ''}
+                      </p>
+                      <p className="muted small">답변과 근거는 그대로 둡니다.</p>
+                    </>
+                  )}
+                  {judgment?.ok && (
+                    <>
+                      <div className="pills">
+                        <span
+                          className={`pill ${judgment.verdict.groundedInSources ? 'pill-ok' : 'pill-bad'}`}
+                        >
+                          {judgment.verdict.groundedInSources ? '자료에 근거함' : '자료 밖 내용 있음'}
+                        </span>
+                        <span
+                          className={`pill ${judgment.verdict.hallucinated ? 'pill-bad' : 'pill-ok'}`}
+                        >
+                          {judgment.verdict.hallucinated ? '만들어 낸 내용 있음' : '만들어 낸 내용 없음'}
+                        </span>
+                        <span className="pill pill-score">
+                          근거성 {judgment.verdict.scoreOutOf100}/100
+                        </span>
+                      </div>
+                      {judgment.verdict.comment && (
+                        <p className="muted preline judge-comment">
+                          {judgment.verdict.comment.trim()}
+                        </p>
+                      )}
+                      <p className="muted small">
+                        {(judgment.ms / 1000).toFixed(1)}초 · 온도 0 · 스키마 강제.{' '}
+                        <strong>확률적 판정입니다</strong> — 규칙 배지와 달리 같은 답변에 다른
+                        결과가 나올 수 있습니다.
+                      </p>
+                    </>
+                  )}
+                  {!judging && judgment && (
+                    <button className="ghost" type="button" onClick={runJudge}>
+                      다시 판정
+                    </button>
+                  )}
                 </div>
 
                 <div className="verdict verdict-human">

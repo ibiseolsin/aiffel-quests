@@ -91,6 +91,65 @@ export async function generate(
   return generateOllama(config, prompt, onToken, signal)
 }
 
+/* ─── 스키마를 강제하는 한 방 호출 (S8 판정) ────────────────────────────── */
+
+/**
+ * JSON 스키마를 **엔진에 넘겨서** 구조를 강제하고, 결과를 파싱해 돌려준다.
+ *
+ * 프롬프트로 「JSON 으로 답해」라고 부탁하지 않는다 — FINDINGS 2절이 그게 안 된다는 것을
+ * 실측으로 보였다: `format:"json"` + 프롬프트 지시로는 `noHalluc` 이 `"No Hallucination"`
+ * 으로 변조되는 일이 3/3 재현됐다. 두 엔진 다 **스키마를 받는 자리**가 따로 있다.
+ *
+ * 스트리밍하지 않는다. 판정은 한 덩어리로 와야 파싱되고, 사람이 읽으며 기다릴 글도 아니다.
+ */
+export async function generateJson(
+  config: EngineConfig,
+  prompt: string,
+  schema: JsonSchema,
+  signal: AbortSignal,
+): Promise<unknown> {
+  const text =
+    config.kind === 'gemini'
+      ? await jsonGemini(config, prompt, schema, signal)
+      : await jsonOllama(config, prompt, schema, signal)
+  try {
+    return JSON.parse(text)
+  } catch {
+    // 스키마를 줬는데도 JSON 이 아니면 판정 실패다. **답변은 그대로 둔다** (PRD 5절 규칙 3)
+    throw new EngineError('판정 응답이 JSON 이 아니다', text.slice(0, 300))
+  }
+}
+
+/** 우리가 쓰는 만큼의 JSON 스키마. 두 엔진이 받는 교집합만 둔다 */
+export type JsonSchema = {
+  type: 'object'
+  properties: Record<
+    string,
+    { type: 'boolean' | 'integer' | 'string'; description: string; minLength?: number }
+  >
+  required: string[]
+}
+
+/**
+ * Gemini 의 `responseSchema` 는 OpenAPI Schema 방언이라 **타입 이름이 대문자**이고
+ * `minLength` 같은 제약을 다 받지는 않는다. 그래서 여기서 갈아 준다 — 스키마 하나를
+ * 두 엔진에 그대로 밀어 넣으면 한쪽에서 400 이 난다.
+ */
+function toGeminiSchema(schema: JsonSchema) {
+  return {
+    type: 'OBJECT',
+    properties: Object.fromEntries(
+      Object.entries(schema.properties).map(([k, v]) => [
+        k,
+        { type: v.type.toUpperCase(), description: v.description },
+      ]),
+    ),
+    required: schema.required,
+    // 필드 순서를 고정한다. 순서가 흔들리면 모델이 근거를 쓰기 전에 점수를 먼저 뱉는다
+    propertyOrdering: schema.required,
+  }
+}
+
 /**
  * 줄 단위로 오는 스트림을 읽는다. 청크 경계가 줄 경계와 맞지 않으므로
  * 남는 조각을 들고 다녀야 한다 — 이걸 빼먹으면 JSON 이 반토막 난 채 파싱된다.
@@ -185,17 +244,17 @@ function explainGeminiError(flavor: ApiFlavor, status: number, body: string): st
   return ''
 }
 
-async function generateGemini(
+/**
+ * 창구마다 경로와 인증이 다르다. **스트리밍 호출과 판정 호출이 같은 곳을 보게** 여기로 모았다 —
+ * 두 벌로 두면 창구 하나를 고칠 때 한쪽만 고쳐지고, 그 어긋남은 유효한 키가 있어야 드러난다.
+ */
+async function geminiEndpoint(
   config: EngineConfig,
-  prompt: string,
-  onToken: OnToken,
+  method: 'streamGenerateContent?alt=sse' | 'generateContent',
   signal: AbortSignal,
-): Promise<void> {
-  // 창구마다 경로와 인증이 다르다
+): Promise<{ url: string; headers: Record<string, string>; who: string; flavor: ApiFlavor }> {
   const flavor = config.flavor ?? 'vertex-sa'
   const headers: Record<string, string> = { 'content-type': 'application/json' }
-  let url: string
-  let who: string
 
   if (flavor === 'vertex-sa') {
     const sa = config.serviceAccount
@@ -203,24 +262,49 @@ async function generateGemini(
     const loc = config.location?.trim() || DEFAULT_LOCATION
     // 리전을 지정하면 호스트도 그 리전으로 간다. global 은 리전 없는 호스트를 쓴다
     const host = loc === 'global' ? 'aiplatform.googleapis.com' : `${loc}-aiplatform.googleapis.com`
-    url = `https://${host}/v1/projects/${sa.project_id}/locations/${loc}/publishers/google/models/${config.model}:streamGenerateContent?alt=sse`
     let token: string
     try {
       token = await getAccessToken(sa, signal)
     } catch (e) {
-      if (signal.aborted) return
       throw new EngineError(`액세스 토큰을 받지 못했다: ${(e as Error).message}`)
     }
     headers.authorization = `Bearer ${token}`
-    who = `${API_FLAVOR_LABEL[flavor]} · ${describeServiceAccount(sa)} · ${loc}`
-  } else {
-    if (!config.apiKey) throw new EngineError('API 키가 없다', '화면에서 API 키를 입력하세요')
-    headers['x-goog-api-key'] = config.apiKey
-    url =
+    return {
+      url: `https://${host}/v1/projects/${sa.project_id}/locations/${loc}/publishers/google/models/${config.model}:${method}`,
+      headers,
+      who: `${API_FLAVOR_LABEL[flavor]} · ${describeServiceAccount(sa)} · ${loc}`,
+      flavor,
+    }
+  }
+
+  if (!config.apiKey) throw new EngineError('API 키가 없다', '화면에서 API 키를 입력하세요')
+  headers['x-goog-api-key'] = config.apiKey
+  return {
+    url:
       flavor === 'vertex'
-        ? `https://aiplatform.googleapis.com/v1/publishers/google/models/${config.model}:streamGenerateContent?alt=sse`
-        : `https://generativelanguage.googleapis.com/v1beta/models/${config.model}:streamGenerateContent?alt=sse`
-    who = API_FLAVOR_LABEL[flavor]
+        ? `https://aiplatform.googleapis.com/v1/publishers/google/models/${config.model}:${method}`
+        : `https://generativelanguage.googleapis.com/v1beta/models/${config.model}:${method}`,
+    headers,
+    who: API_FLAVOR_LABEL[flavor],
+    flavor,
+  }
+}
+
+async function generateGemini(
+  config: EngineConfig,
+  prompt: string,
+  onToken: OnToken,
+  signal: AbortSignal,
+): Promise<void> {
+  let url: string
+  let headers: Record<string, string>
+  let who: string
+  let flavor: ApiFlavor
+  try {
+    ;({ url, headers, who, flavor } = await geminiEndpoint(config, 'streamGenerateContent?alt=sse', signal))
+  } catch (e) {
+    if (signal.aborted) return
+    throw e
   }
 
   let res: Response
@@ -262,6 +346,80 @@ async function generateGemini(
       // 조각난 줄은 건너뛴다. 스트림 전체를 여기서 죽이지 않는다
     }
   }
+}
+
+async function jsonGemini(
+  config: EngineConfig,
+  prompt: string,
+  schema: JsonSchema,
+  signal: AbortSignal,
+): Promise<string> {
+  const { url, headers, who, flavor } = await geminiEndpoint(config, 'generateContent', signal)
+  let res: Response
+  try {
+    res = await fetch(url, {
+      method: 'POST',
+      signal,
+      headers,
+      body: JSON.stringify({
+        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+        generationConfig: {
+          // 판정은 재현 가능해야 한다 — 같은 답변을 두 번 재서 배지가 달라지면 배지가 아니다
+          temperature: 0,
+          responseMimeType: 'application/json',
+          responseSchema: toGeminiSchema(schema),
+        },
+      }),
+    })
+  } catch (e) {
+    throw new EngineError(`Gemini 판정에 연결하지 못했다: ${(e as Error).message}`)
+  }
+  if (!res.ok) {
+    const body = await res.text().catch(() => '')
+    throw new EngineError(
+      `Gemini 판정 오류 ${res.status} (${who}, ${config.model})`,
+      `${explainGeminiError(flavor, res.status, body)}${body.slice(0, 400) || '응답 본문이 비어 있다'}`,
+    )
+  }
+  const json = await res.json()
+  return (json.candidates?.[0]?.content?.parts ?? [])
+    .map((p: { text?: string }) => p.text ?? '')
+    .join('')
+}
+
+async function jsonOllama(
+  config: EngineConfig,
+  prompt: string,
+  schema: JsonSchema,
+  signal: AbortSignal,
+): Promise<string> {
+  const base = config.baseUrl ?? OLLAMA_BASE
+  let res: Response
+  try {
+    res = await fetch(`${base}/api/generate`, {
+      method: 'POST',
+      signal,
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        model: config.model,
+        prompt,
+        stream: false,
+        think: false,
+        // Ollama 는 `format` 에 `"json"` 대신 **스키마 객체**를 받는다 (FINDINGS 2절 시도 B)
+        format: schema,
+        options: { temperature: 0 },
+      }),
+    })
+  } catch (e) {
+    throw new EngineError(`Ollama 판정에 연결하지 못했다: ${(e as Error).message}`)
+  }
+  if (!res.ok) {
+    const body = await res.text().catch(() => '')
+    throw new EngineError(`Ollama 판정 오류 ${res.status}`, body.slice(0, 300))
+  }
+  const json = await res.json()
+  if (json.error) throw new EngineError(`Ollama 판정: ${json.error}`)
+  return String(json.response ?? '')
 }
 
 /**
