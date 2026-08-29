@@ -19,6 +19,8 @@ export type PromptInput = {
   effectiveFrom: string
   effectiveTo: string
   now: Date
+  /** 인용 규칙 문구의 이름. **S11b 실험 축 3** — 앱은 넘기지 않아 기본값을 쓴다 */
+  citationRule?: keyof typeof CITATION_RULES
 }
 
 /**
@@ -28,11 +30,36 @@ export type PromptInput = {
  * 말하면 정당한 거절이 아니라 **틀린 답**이다 — 규정은 분명히 있고 이 자료에 없을 뿐이다.
  * PRD 는 이걸 배포 실패 조건으로 두었다.
  */
-const PRINCIPLES = `[답변 원칙]
-1. 아래 [자료]에 있는 내용만 근거로 답한다. 자료에 없는 조문 번호·수치·문구를 만들지 않는다.
-2. 근거로 쓴 자료마다 문장 끝에 자료 번호를 **대괄호로** 적는다.
+/**
+ * **인용 규칙 문구 — S11b 실험 축 3.**
+ *
+ * 이 축이 실험 대상인 이유는 실측이다: 같은 `qwen3.5:2b` 가 같은 질문에서 `[S2]`·`(S1, S5)`·
+ * `[4]` 를 섞어 쓴다 (FINDINGS 10·13절). 추출기를 관대하게 만드는 것이 한 방향이고,
+ * **프롬프트로 표기를 더 세게 묶는 것**이 다른 방향이다. 둘 다 재 봐야 한다.
+ *
+ * 문구를 바꾸면 인용률과 표기 분포가 같이 움직인다 — 하네스가 그걸 잰다.
+ */
+export const CITATION_RULES: Record<string, string> = {
+  // 기준선 — S5 부터 써 온 문구
+  default: `2. 근거로 쓴 자료마다 문장 끝에 자료 번호를 **대괄호로** 적는다.
    예: "영양표시를 하여야 한다[S2]." / 여러 개면 "…한다[S1][S3]."
-   소괄호로 (S1, S3) 처럼 쓰지 않는다.
+   소괄호로 (S1, S3) 처럼 쓰지 않는다.`,
+
+  // 더 세게 — 틀린 표기를 **예시로 나열**해 금지한다. 「하지 마라」보다 「이건 틀렸다」가
+  // 작은 모델에 잘 먹히는지 보는 것이 이 변형의 목적이다
+  strict: `2. 근거로 쓴 자료마다 문장 끝에 자료 번호를 **정확히 이 형식으로** 적는다: [S1]
+   맞는 예: "영양표시를 하여야 한다[S2]." / "…한다[S1][S3]."
+   **틀린 예 (쓰지 마라)**: (S1, S3) · [1] · (2) · S1 · 【S1】 · [자료 1]
+   반드시 대괄호 하나에 S 하나와 숫자 하나만 넣는다. 한 번도 예외를 두지 않는다.`,
+
+  // 더 가볍게 — 형식을 강제하지 않고 「근거를 대라」만 요구한다. 표기를 묶는 것이
+  // 답변 품질을 깎는지 보는 대조군
+  loose: `2. 근거로 쓴 자료의 번호를 문장 안에 밝힌다. 어떤 표기든 좋다.`,
+}
+
+const principles = (citationRule: string) => `[답변 원칙]
+1. 아래 [자료]에 있는 내용만 근거로 답한다. 자료에 없는 조문 번호·수치·문구를 만들지 않는다.
+${citationRule}
 3. 자료에 없으면 "제공된 자료에서 확인되지 않습니다"라고 말한다.
    **"법령에 없습니다"라고 말하지 않는다** — 이 자료는 대한민국 법령의 일부일 뿐이므로,
    자료에 없다는 것과 법령에 없다는 것은 전혀 다른 말이다.
@@ -43,6 +70,7 @@ const PRINCIPLES = `[답변 원칙]
 
 export function buildPrompt(input: PromptInput): string {
   const { question, chunks, meta, effectiveFrom, effectiveTo, now } = input
+  const rule = CITATION_RULES[input.citationRule ?? 'default'] ?? CITATION_RULES.default
 
   const sources = chunks
     .map(
@@ -56,7 +84,7 @@ export function buildPrompt(input: PromptInput): string {
   return `당신은 식품 표시·광고 규정 안내를 돕는 도우미다. 대한민국 「식품 등의 표시·광고에 관한 법률」과
 그 시행령·시행규칙, 그리고 식품의약품안전처 고시 일부가 자료로 주어진다.
 
-${PRINCIPLES}
+${principles(rule)}
 
 [이 자료가 다루지 않는 것]
 아래 주제는 이 자료의 범위 밖이다. 질문이 여기 해당하면 **소관 법령을 알려 주고 그 내용은 말하지 않는다.**

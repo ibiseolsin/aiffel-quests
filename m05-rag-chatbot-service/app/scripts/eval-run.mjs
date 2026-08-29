@@ -45,9 +45,11 @@ import { fileURLToPath } from 'node:url'
 import { pipeline } from '@huggingface/transformers'
 import { MODELS } from './embed-models.mjs'
 import { buildBm25 } from '../src/lib/bm25.ts'
-import { DEFAULT_SPARSE_WEIGHT, hybridSearch, limitFamilies } from '../src/lib/search.ts'
-import { buildPrompt } from '../src/lib/prompt.ts'
-import { extractCitations } from '../src/lib/citations.ts'
+import { DEFAULT_SPARSE_WEIGHT, hybridSearch, hybridSearchTraced, limitFamilies } from '../src/lib/search.ts'
+import { buildPrompt, CITATION_RULES } from '../src/lib/prompt.ts'
+import { extractCitations, splitCitations } from '../src/lib/citations.ts'
+import { classify, preClassify, REFUSING } from '../src/lib/evidence-state.ts'
+import { judge } from '../src/lib/judge.ts'
 import { EVAL_SET, PROBE_SET, STATES_EXPECTING_REFUSAL, STATES_NEEDING_EVIDENCE, verifyEvalSet } from './eval-set.mjs'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
@@ -109,31 +111,48 @@ if (axesChanged.length > 1 && !flags.has('allow-multi-axis')) {
   process.exit(2)
 }
 
-/* ─── 판정 훅 — 아직 비어 있다 ────────────────────────────────────────────── */
+/* ─── 판정 — S7·S8 의 **앱과 같은 코드**를 부른다 ─────────────────────────── */
 
 /**
- * 근거 상태 5단 판정 (S7). **미구현.**
+ * 근거 상태 5단 판정 (S7).
  *
- * 들어와야 하는 것: 검색 최고 **원 코사인** 두 임계값 + 「인용이 하나도 없으면 근거충분 아님」
- * 규칙. `hybridSearch` 가 `dense` 를 원점수로 들고 다니는 이유가 이것이다 (search.ts 주석).
- * 지금은 `null` 을 돌려주고, 임계값 인자는 받아 두기만 한다.
+ * **하네스가 판정을 다시 구현하지 않는다.** `src/lib/evidence-state.ts` 를 그대로 부른다 —
+ * 여기서 흉내 내면 재는 것과 배포되는 것이 다른 물건이 되고, 그 어긋남은 조용하다.
+ *
+ * `weakThreshold` 가 **실험 축 2**다. `null` 이면 앱 기본값(`CITED_DENSE_MIN`)을 쓴다.
  */
-function classifyEvidence(_ctx, _weakThreshold) {
-  return null
+function classifyEvidence(ctx, weakThreshold) {
+  const pre = ctx.pre
+  if (pre.refuse) return { state: pre.refuse, why: pre.why, limits: [], pre }
+  const citations = splitCitations(ctx.answer ?? '', ctx.labels)
+  const v = classify({
+    pre,
+    evidence: ctx.evidence,
+    citations,
+    cancelled: false,
+    ...(weakThreshold == null ? {} : { citedDenseMin: weakThreshold }),
+  })
+  return { ...v, pre }
 }
-const EVIDENCE_HOOK_NOTE = '미구현 (S7) — 임계값 2개와 5단 판정이 아직 없다'
+const EVIDENCE_HOOK_NOTE = 'src/lib/evidence-state.ts (앱과 같은 코드)'
 
 /**
- * LLM 근거성 판정 (S8). **미구현.**
+ * LLM 근거성 판정 (S8). `src/lib/judge.ts` 를 그대로 부른다.
  *
- * 들어와야 하는 것: FINDINGS 2절의 계약 — JSON 스키마 강제 + 긍정형 필드명
- * (`groundedInSources` · `hallucinated` · `citedIds` · `refusedForNoEvidence` · `scoreOutOf100`).
- * 이번 웨이브는 LLM 호출이 금지되어 훅만 둔다.
+ * **답이 없으면 부르지 않는다** — 잴 문장이 없는데 모델을 부르면 그건 판정이 아니라 낭비다.
+ * mock 엔진에서도 부르지 않는다: mock 답변을 판정해 봐야 배관만 재고 의미가 없다.
  */
-async function judge(_ctx) {
-  return null
+async function judgeAnswer(ctx, opts) {
+  if (!opts.enabled || !ctx.answer) return null
+  const out = await judge(
+    opts.config,
+    { question: ctx.question.question, answer: ctx.answer, evidence: ctx.evidence },
+    AbortSignal.timeout(180_000),
+  )
+  return out.ok
+    ? { ...out.verdict, ms: Math.round(out.ms), model: out.model }
+    : { failed: out.message, ms: Math.round(out.ms), model: out.model }
 }
-const JUDGE_HOOK_NOTE = '미구현 (S8) — LLM 근거성 판정이 아직 없다. 이번 웨이브는 LLM 호출 금지'
 
 /* ─── 엔진 ──────────────────────────────────────────────────────────────── */
 
@@ -186,6 +205,9 @@ async function makeEngine(name) {
   return {
     name: `${name} (${config.model})`,
     deterministic: false,
+    // **판정도 같은 엔진·같은 설정으로 돈다** (PRD 3절 F5). 답변과 판정이 다른 모델이면
+    // 「이 모델의 답을 이 모델이 어떻게 보는가」가 아니게 된다
+    judgeConfig: config,
     run: async (prompt) => {
       let answer = ''
       await generate(config, prompt, (t) => (answer += t), new AbortController().signal)
@@ -200,6 +222,17 @@ const engine = await makeEngine(engineName).catch((e) => {
   console.error(`\n엔진을 세울 수 없다: ${e?.message ?? e}\n`)
   process.exit(2)
 })
+
+/**
+ * LLM 판정을 돌릴지. **실제 엔진일 때만 돈다** — mock 답변을 판정하는 것은 배관만 재는
+ * 일이고, 그 숫자가 리포트에 실리면 「판정했다」로 잘못 읽힌다.
+ */
+const judgeOpts = engine.judgeConfig
+  ? { enabled: true, config: engine.judgeConfig }
+  : { enabled: false, config: null }
+const JUDGE_HOOK_NOTE = judgeOpts.enabled
+  ? `src/lib/judge.ts · ${engine.name} · 온도 0 · 스키마 강제`
+  : '미실행 — mock/none 엔진에서는 판정하지 않는다 (답이 mock 이라 판정할 의미가 없다)'
 
 /* ─── 자료 ──────────────────────────────────────────────────────────────── */
 
@@ -260,10 +293,10 @@ async function runOne(q, kind) {
     hybridSearch(corpus, qv, q.question, bm25, MERGED_MAX, axes.sparseWeight),
     (i) => chunks[i].text,
   )
-  const hits = limitFamilies(
-    hybridSearch(corpus, qv, q.question, bm25, axes.topK * 3, axes.sparseWeight),
-    (i) => chunks[i].text,
-  ).slice(0, axes.topK)
+  // 추적판을 쓴다 — S7 임계값 ①이 보는 `sparseTop5` 가 여기서만 나온다.
+  // 이 값은 top-k 와 무관하므로 축 1을 흔들어도 움직이지 않는다
+  const traced = hybridSearchTraced(corpus, qv, q.question, bm25, axes.topK * 3, axes.sparseWeight)
+  const hits = limitFamilies(traced.hits, (i) => chunks[i].text).slice(0, axes.topK)
 
   const rankIn = (list) => {
     const at = list.findIndex((h) => goldIdx.has(h.index))
@@ -274,6 +307,8 @@ async function runOne(q, kind) {
 
   const retrieval = {
     goldExpected: needsEvidence,
+    /** S7 임계값 ①이 보는 값. **top-k 와 무관하다** */
+    sparseTop5: traced.trace.sparseTop5,
     candidateCount: candidates.length,
     promptCount: hits.length,
     /** 근거 조문이 후보 안에 있는가 (없으면 검색 단계 실패) */
@@ -294,7 +329,9 @@ async function runOne(q, kind) {
     })),
   }
 
-  const labelled = hits.map((h, i) => ({ chunk: chunks[h.index], label: `S${i + 1}` }))
+  // `hit` 을 같이 실어야 S7 임계값 ②가 실제 코사인을 본다. 빼먹으면 늘 0 으로 읽혀
+  // **임계값이 절대 통과할 수 없게 된다** — 기준선 첫 실행에서 「코사인 0.000 < 0.86」로 드러났다
+  const labelled = hits.map((h, i) => ({ chunk: chunks[h.index], label: `S${i + 1}`, hit: h }))
   let prompt = null
   let promptError = null
   try {
@@ -305,14 +342,20 @@ async function runOne(q, kind) {
       effectiveFrom: dates[0],
       effectiveTo: dates.at(-1),
       now,
+      citationRule: axes.citationRule,
     })
   } catch (e) {
     promptError = String(e?.message ?? e)
   }
 
+  /* **앱과 같은 순서로 돈다.** 앱은 `preClassify` 가 거절이면 엔진을 부르지 않는다
+     (PRD 8절 A3 — 모델이 범위 밖 법령의 *내용*을 지어내는 것을 막는 유일한 방법이다).
+     하네스가 그걸 건너뛰면 배포되는 것과 다른 파이프라인을 재게 된다. */
+  const preScope = preClassify(q.question, meta, traced.trace.sparseTop5)
+
   let answer = null
   let engineError = null
-  if (engine.run && prompt) {
+  if (engine.run && prompt && !preScope.refuse) {
     try {
       answer = await engine.run(prompt, labelled)
     } catch (e) {
@@ -328,7 +371,16 @@ async function runOne(q, kind) {
   const citationValid = cited == null ? null : invalid.length === 0
   const forbidden = answer == null ? null : FORBIDDEN.filter((re) => re.test(answer)).map(String)
 
-  const ctx = { question: q, retrieval, prompt, answer, cited }
+  const ctx = {
+    question: q,
+    retrieval,
+    prompt,
+    answer,
+    cited,
+    labels: labelled.map((l) => l.label),
+    evidence: labelled,
+    pre: preScope,
+  }
 
   /* 단계별 판정 — 앞 단계가 실패하면 뒤 단계는 볼 것이 없다 */
   const stages = {}
@@ -378,20 +430,29 @@ async function runOne(q, kind) {
     notes.push(`거절해야 하는 문항인데 근거 ${cited.length}개를 인용했다 — S7 상태판정이 걸러야 할 것`)
   }
 
-  const evidenceState = classifyEvidence(ctx, axes.weakThreshold)
-  const judged = await judge(ctx)
-  stages.판정 = evidenceState == null && judged == null ? '미구현' : 'pass'
-  if (stages.판정 === '미구현' && failStage == null && expectsRefusal) {
-    // 거절했는지 여부는 상태판정이 있어야 답이 나온다 — 지금은 결론을 내지 않는다
-    failStage = '판정(미구현)'
+  /* ── 판정 (S7·S8) ─────────────────────────────────────────────────────
+     여기서부터가 S11b 에서 새로 살아난 부분이다. **거절 문항의 정답은 상태 이름**이고,
+     근거 있는 문항은 5단 중 무엇으로 읽혔는지를 기대값과 대조한다. */
+  const es = classifyEvidence(ctx, axes.weakThreshold)
+  const judged = await judgeAnswer(ctx, judgeOpts)
+
+  const stateMatch = q.expected ? es.state === q.expected : null
+  stages.근거상태 = stateMatch == null ? '해당없음' : stateMatch ? 'pass' : 'fail'
+  if (stateMatch === false) {
+    failStage ??= '근거상태'
+    notes.push(`근거상태 기대 ${q.expected} → 판정 ${es.state} (${es.why.at(-1) ?? ''})`)
   }
 
-  const verdict =
-    failStage && failStage !== '판정(미구현)'
-      ? '실패'
-      : stages.판정 === '미구현'
-        ? '미판정'
-        : '통과'
+  // 거절해야 하는 문항인데 답을 만들었으면 그게 곧 실패다 — 이제 판정이 있으니 결론을 낸다
+  if (expectsRefusal && !REFUSING.includes(es.state)) {
+    failStage ??= '근거상태'
+    notes.push('거절해야 하는 문항인데 답을 만들었다')
+  }
+
+  stages.판정 = judged == null ? '미실행' : judged.failed ? 'fail' : 'pass'
+  if (judged?.failed) notes.push(`LLM 판정 실패: ${judged.failed}`)
+
+  const verdict = failStage ? '실패' : '통과'
 
   return {
     id: q.id,
@@ -407,7 +468,7 @@ async function runOne(q, kind) {
     answer: answer == null ? null : { chars: answer.length, text: answer },
     citations: cited == null ? null : { cited, invalid, count: cited.length },
     rules: { citationValid, forbiddenPhrases: forbidden },
-    evidenceState,
+    evidenceState: { state: es.state, expected: q.expected ?? null, match: stateMatch, why: es.why, limits: es.limits },
     evidenceStateNote: EVIDENCE_HOOK_NOTE,
     judge: judged,
     judgeNote: JUDGE_HOOK_NOTE,
@@ -441,14 +502,25 @@ const summary = {
   questions: results.length,
   검색적중: `${needing.filter((r) => r.retrieval.inCandidates).length}/${needing.length}`,
   프롬프트적재: `${needing.filter((r) => r.retrieval.inPrompt).length}/${needing.length}`,
+  /** **인용을 실제로 단 답변**만 분모에 둔다. 0개 인용을 「무효가 없으니 유효」로 세면
+   *  아무 근거도 안 댄 답이 만점으로 읽힌다 (기준선 첫 실행에서 9/9 로 나왔던 것) */
   인용유효: (() => {
-    const scored = results.filter((r) => r.rules.citationValid != null)
-    return scored.length ? `${scored.filter((r) => r.rules.citationValid).length}/${scored.length}` : '미실행'
+    const cited = results.filter((r) => r.citations?.count > 0)
+    return cited.length ? `${cited.filter((r) => r.rules.citationValid).length}/${cited.length}` : '미실행'
+  })(),
+  인용없음: results.filter((r) => r.citations && r.citations.count === 0).map((r) => r.id),
+  근거상태적중: (() => {
+    const scored = evalOnly.filter((r) => r.evidenceState.match != null)
+    return scored.length ? `${scored.filter((r) => r.evidenceState.match).length}/${scored.length}` : '미실행'
+  })(),
+  근거성판정: (() => {
+    const j = evalOnly.filter((r) => r.judge && !r.judge.failed)
+    if (!j.length) return '미실행'
+    return `근거함 ${j.filter((r) => r.judge.groundedInSources).length}/${j.length} · 만들어냄 ${j.filter((r) => r.judge.hallucinated).length}/${j.length}`
   })(),
   실패: evalOnly.filter((r) => r.verdict === '실패').map((r) => `${r.id}(${r.failStage})`),
-  미판정: evalOnly.filter((r) => r.verdict === '미판정').map((r) => r.id),
-  근거상태: EVIDENCE_HOOK_NOTE,
-  근거성: JUDGE_HOOK_NOTE,
+  근거상태훅: EVIDENCE_HOOK_NOTE,
+  근거성훅: JUDGE_HOOK_NOTE,
 }
 
 const report = {
@@ -469,8 +541,13 @@ const report = {
 }
 
 function citationRuleNote() {
-  if (axes.citationRule === BASELINE.citationRule) return '기준선 (src/lib/prompt.ts 의 고정 문구)'
-  return `"${axes.citationRule}" — **no-op.** 인용 규칙 문구는 src/lib/prompt.ts 안에 고정돼 있어 이 축은 아직 흔들 수 없다`
+  const known = Object.keys(CITATION_RULES)
+  if (!known.includes(axes.citationRule)) {
+    return `"${axes.citationRule}" — 없는 이름이다. 쓸 수 있는 것: ${known.join(' · ')}`
+  }
+  return axes.citationRule === BASELINE.citationRule
+    ? `기준선 ("${axes.citationRule}")`
+    : `"${axes.citationRule}" — 프롬프트 원칙 2번 문구가 바뀐다 (src/lib/prompt.ts CITATION_RULES)`
 }
 
 mkdirSync(OUT_DIR, { recursive: true })
@@ -505,7 +582,7 @@ console.log(
 console.log(`기준선에서 바뀐 축: ${axesChanged.length ? axesChanged.join(', ') : '없음'}\n`)
 
 table(
-  ['문항', '기대상태', '검색', '프롬프트', '인용', '판정', '결과', '실패단계'],
+  ['문항', '기대상태', '검색', '프롬프트', '인용', '근거상태', 'LLM판정', '결과', '실패단계'],
   results.map((r) => [
     r.id,
     r.expected ?? r.kind,
@@ -516,13 +593,20 @@ table(
       : '해당없음',
     r.retrieval.goldExpected ? (r.retrieval.inPrompt ? `${r.retrieval.inPrompt.rank}위` : '실림 안 됨') : '-',
     r.citations == null ? '미실행' : `${r.citations.count}개${r.citations.invalid.length ? ` (무효 ${r.citations.invalid.length})` : ''}`,
-    r.stages.판정,
+    r.evidenceState.match == null ? r.evidenceState.state : `${r.evidenceState.state}${r.evidenceState.match ? '' : ' ✗'}`,
+    r.judge ? (r.judge.failed ? '실패' : `${r.judge.hallucinated ? '만들어냄' : '깨끗'} ${r.judge.scoreOutOf100}`) : '미실행',
     r.verdict,
     r.failStage ?? '-',
   ]),
 )
 
-console.log(`\n검색 적중 ${summary.검색적중} · 프롬프트 적재 ${summary.프롬프트적재} · 인용 유효 ${summary.인용유효}`)
+console.log(
+  `
+검색 적중 ${summary.검색적중} · 프롬프트 적재 ${summary.프롬프트적재} · 인용 유효 ${summary.인용유효}` +
+    ` · 근거상태 적중 ${summary.근거상태적중} · 근거성 ${summary.근거성판정}` +
+    (summary.인용없음.length ? `
+인용을 하나도 안 단 답변: ${summary.인용없음.join(', ')}` : ''),
+)
 const probes = results.filter((r) => r.kind === '표기진단')
 if (probes.length) {
   // 표기 진단은 루브릭 지표가 아니므로 위 합계와 섞지 않는다
@@ -531,7 +615,7 @@ if (probes.length) {
   )
 }
 if (summary.실패.length) console.log(`실패: ${summary.실패.join(', ')}`)
-if (summary.미판정.length) console.log(`미판정(S7·S8 없음): ${summary.미판정.join(', ')}`)
+
 
 const withNotes = results.filter((r) => r.notes.length)
 if (withNotes.length) {

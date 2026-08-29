@@ -211,8 +211,11 @@ export function classify(input: {
   evidence: { label: string; chunk: Chunk; hit?: HybridHit }[]
   citations: Citations
   cancelled: boolean
+  /** 임계값 ②를 덮어쓴다. **S11b 실험 축 2가 이 인자다** — 앱은 기본값을 쓴다 */
+  citedDenseMin?: number
 }): Verdict {
   const { pre, evidence, citations, cancelled } = input
+  const citedDenseMin = input.citedDenseMin ?? CITED_DENSE_MIN
   const why = [...pre.why]
   const limits: string[] = []
 
@@ -264,9 +267,9 @@ export function classify(input: {
 
   // 임계값 ② — 마지막 문지기
   const bestCitedDense = Math.max(0, ...cited.map((e) => e.hit?.dense ?? 0))
-  if (cited.length && bestCitedDense < CITED_DENSE_MIN) {
+  if (cited.length && bestCitedDense < citedDenseMin) {
     why.push(
-      `인용된 근거가 질문과 그리 가깝지 않습니다 (코사인 ${bestCitedDense.toFixed(3)} < ${CITED_DENSE_MIN}).`,
+      `인용된 근거가 질문과 그리 가깝지 않습니다 (코사인 ${bestCitedDense.toFixed(3)} < ${citedDenseMin}).`,
     )
     sufficient = false
   }
