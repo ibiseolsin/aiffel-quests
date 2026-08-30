@@ -1130,11 +1130,11 @@ export default function App() {
               <>
                 {localEngineWarning(OLLAMA_BASE) && (
                   <p className="disclaimer" role="note">
-                    <strong>이 주소에서는 로컬 Ollama 가 막힙니다.</strong>{' '}
+                    <strong>이 주소에서 로컬 Ollama 를 쓰려면 설정이 하나 필요합니다.</strong>{' '}
                     {localEngineWarning(OLLAMA_BASE)} Ollama 쪽에{' '}
-                    <code>OLLAMA_ORIGINS</code> 를 설정해도 크롬의 사설망 접근 제한이 남을 수
-                    있습니다. <strong>로컬 엔진은 개발 서버(localhost)에서 쓰는 쪽이 확실하고</strong>,
-                    배포본에서는 위의 Gemini 를 쓰세요.
+                    <code>OLLAMA_ORIGINS</code> 로 <code>{location.origin}</code> 을 허용하고
+                    재시작하면 됩니다 — <strong>그러면 배포본에서도 답변이 생성됩니다</strong>
+                    (2026-08-30, 크롬에서 확인). 설정이 번거로우면 위의 Gemini 를 쓰세요.
                   </p>
                 )}
                 <p className="muted">

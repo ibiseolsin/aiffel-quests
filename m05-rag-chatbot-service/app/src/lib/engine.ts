@@ -432,12 +432,11 @@ async function jsonOllama(
  * | `http://localhost:4175` | 204 (기본 허용) |
  * | `https://ibiseolsin.github.io` | **403** — `OLLAMA_ORIGINS` 미설정 |
  *
- * ① Ollama 의 CORS — `OLLAMA_ORIGINS` 에 그 주소를 넣어야 한다.
- * ② 브라우저의 사설망 접근 제한 — 공개 origin 에서 loopback 으로 가는 요청을 크롬이
- *    따로 막을 수 있고, Ollama 는 `Access-Control-Allow-Private-Network` 를 보내지 않는다.
- *    **①을 고쳐도 ②가 남을 수 있다** — 확인되지 않았다.
- *
- * 그래서 로컬 엔진은 `localhost` 에서 여는 것이 확실한 길이다.
+ * ① Ollama 의 CORS — `OLLAMA_ORIGINS` 에 그 주소를 넣어야 한다. **관문은 이것 하나다.**
+ * ② 브라우저의 사설망 접근 제한 — 2026-08-29 에는 이것도 남는 줄 알았다. 배포본 origin 에서
+ *    `net::ERR_BLOCKED_BY_CLIENT` 가 났기 때문이다. **2026-08-30 에 사람 크롬에서 다시 재니
+ *    ①만 열면 답변 생성까지 된다.** 앞의 차단은 관측에 쓴 자동화 크롬 쪽 문제였다
+ *    (`ERR_BLOCKED_BY_CLIENT` 는 크롬의 사설망 전용 코드가 아니다). FINDINGS 9절.
  */
 
 /**
@@ -498,12 +497,12 @@ export function geminiStatus(args: {
       }
 }
 
-/** 이 페이지에서 이 주소를 부를 때 브라우저가 막을 가능성이 있는지 미리 본다 */
+/** 이 페이지에서 이 주소를 부르려면 Ollama 쪽 설정이 필요한지 미리 본다 */
 export function localEngineWarning(baseUrl: string): string | null {
   if (typeof location === 'undefined') return null
   if (location.protocol !== 'https:') return null
   if (!baseUrl.startsWith('http://')) return null
-  return `이 페이지는 https(${location.origin})인데 Ollama 는 ${baseUrl} 입니다. 그대로는 브라우저나 Ollama 가 요청을 막습니다.`
+  return `이 페이지는 https(${location.origin})인데 Ollama 는 ${baseUrl} 입니다. 설정 전에는 Ollama 가 요청을 거절합니다(403).`
 }
 
 /**
@@ -675,7 +674,7 @@ async function generateOllama(
     throw new EngineError(
       `Ollama 에 연결하지 못했다: ${(e as Error).message}`,
       warn
-        ? `${warn} OLLAMA_ORIGINS 에 이 주소를 넣어도 크롬의 사설망 접근 제한이 남을 수 있습니다 — 로컬 엔진은 localhost 에서 열어 쓰는 쪽이 확실합니다.`
+        ? `${warn} OLLAMA_ORIGINS 에 이 주소를 넣고 Ollama 를 재시작하세요 — 그러면 배포본에서도 답변이 생성됩니다.`
         : 'Ollama 가 켜져 있는지 확인하세요 (`ollama serve`). 켜져 있는데도 안 되면 OLLAMA_ORIGINS 설정이 필요합니다',
     )
   }
