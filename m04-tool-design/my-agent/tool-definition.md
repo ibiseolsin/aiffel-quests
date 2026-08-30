@@ -1,6 +1,6 @@
 # 도구 정의서 — 식품 표시·광고 사전검토 안내 에이전트
 
-> 설계 패킷 ② 에 해당한다. 패킷 본문은 [design-packet.md](../design-packet.md)(작성 예정),
+> 설계 패킷 ② 에 해당한다. 패킷 본문은 [design-packet.md](../design-packet.md),
 > 사용자 관점 요구는 [PRD](../PRD.md), 결정 근거는 [PLAN](../PLAN.md).
 > 작성 2026-08-31 (슬라이스 1).
 >
