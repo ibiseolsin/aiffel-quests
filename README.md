@@ -10,7 +10,7 @@
 | 모듈 | 과제 | 상태 | 배포 |
 |---|---|---|---|
 | [m04](m04-tool-design/) | 도구 설계 — 식품 표시·광고 사전검토 안내 에이전트 | 슬라이스 1~6 완료 (2026-08-31) | 없음 — 설계 문서 과제 |
-| [m05](m05-rag-chatbot-service/) | Main Quest 3 — 식품 표시·광고 규정 안내 RAG 챗봇 | S0~S13 완료 (2026-08-30). 구글폼 제출만 남음 | [배포](https://ibiseolsin.github.io/aiffel-quests/m05/) |
+| [m05](m05-rag-chatbot-service/) | Main Quest 3 — 식품 표시·광고 규정 안내 RAG 챗봇 | **제출 완료 (2026-09-01)** — S0~S13 + 구글폼 | [배포](https://ibiseolsin.github.io/aiffel-quests/m05/) |
 
 ## 배포
 
