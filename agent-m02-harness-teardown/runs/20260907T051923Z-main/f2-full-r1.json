@@ -1,0 +1,96 @@
+{
+  "duration_api_ms": 13235,
+  "stop_reason": "end_turn",
+  "session_id": "81c7f4bd-1706-4389-9f56-e7242bbe4f38",
+  "total_cost_usd": 0.1737966,
+  "usage": {
+    "input_tokens": 8,
+    "cache_creation_input_tokens": 29570,
+    "cache_read_input_tokens": 221853,
+    "output_tokens": 1113,
+    "output_tokens_details": {
+      "thinking_tokens": 70
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 29570,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "not_available",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 128,
+        "cache_read_input_tokens": 65760,
+        "cache_creation_input_tokens": 393,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 393
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard"
+  },
+  "modelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 8,
+      "outputTokens": 1113,
+      "cacheReadInputTokens": 221853,
+      "cacheCreationInputTokens": 29570,
+      "webSearchRequests": 0,
+      "costUSD": 0.1737966,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 70,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "permission_denials": [],
+  "terminal_reason": "completed",
+  "fast_mode_state": "off",
+  "fast_mode_disabled_reason": "sdk_opt_in_required",
+  "subagent_stats": {
+    "spawned": 0,
+    "requested": {
+      "background": 0,
+      "foreground": 0,
+      "unset": 0
+    },
+    "started_in_background": 0,
+    "max_depth": 0,
+    "spawned_by_subagents": 0,
+    "completed": 0,
+    "failed": 0,
+    "killed": {
+      "parent": 0,
+      "user": 0,
+      "system": 0
+    },
+    "refused": {
+      "depth_limit": 0,
+      "concurrency_limit": 0,
+      "budget": 0
+    },
+    "by_type": {}
+  },
+  "is_error": false,
+  "num_turns": 4,
+  "subtype": "success",
+  "api_error_status": null,
+  "result": "PLAN.md D8(S16) 규칙대로 `emit`을 NDJSON 직렬화(`json.dumps(row, ensure_ascii=False)`를 `\"\\n\"`으로 연결, 마지막 개행 없음, 빈 목록은 빈 문자열)로 구현했고 PLAN.md 예시 입출력으로 실행 검증함.",
+  "ttft_ms": 5084,
+  "type": "result",
+  "duration_ms": 38241,
+  "uuid": "f17210ac-a008-4e26-91b3-fa5d3bcee2ae",
+  "ttft_stream_ms": 4478,
+  "time_to_request_ms": 3635,
+  "first_content_frame_ms": 5068,
+  "queued_turn_count": 0
+}

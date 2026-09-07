@@ -28,3 +28,8 @@ Thumbs.db
 .idea/
 .vscode/*
 !.vscode/extensions.json
+
+# 파이썬
+__pycache__/
+*.pyc
+.pytest_cache/

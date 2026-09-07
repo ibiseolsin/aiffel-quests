@@ -1,0 +1,96 @@
+{
+  "duration_api_ms": 14485,
+  "stop_reason": "end_turn",
+  "session_id": "44489505-a341-473a-833e-9a61820a39bb",
+  "total_cost_usd": 0.1770756,
+  "usage": {
+    "input_tokens": 8,
+    "cache_creation_input_tokens": 30283,
+    "cache_read_input_tokens": 223488,
+    "output_tokens": 1123,
+    "output_tokens_details": {
+      "thinking_tokens": 47
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 30283,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "not_available",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 123,
+        "cache_read_input_tokens": 66528,
+        "cache_creation_input_tokens": 338,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 338
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard"
+  },
+  "modelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 8,
+      "outputTokens": 1123,
+      "cacheReadInputTokens": 223488,
+      "cacheCreationInputTokens": 30283,
+      "webSearchRequests": 0,
+      "costUSD": 0.1770756,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 47,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "permission_denials": [],
+  "terminal_reason": "completed",
+  "fast_mode_state": "off",
+  "fast_mode_disabled_reason": "sdk_opt_in_required",
+  "subagent_stats": {
+    "spawned": 0,
+    "requested": {
+      "background": 0,
+      "foreground": 0,
+      "unset": 0
+    },
+    "started_in_background": 0,
+    "max_depth": 0,
+    "spawned_by_subagents": 0,
+    "completed": 0,
+    "failed": 0,
+    "killed": {
+      "parent": 0,
+      "user": 0,
+      "system": 0
+    },
+    "refused": {
+      "depth_limit": 0,
+      "concurrency_limit": 0,
+      "budget": 0
+    },
+    "by_type": {}
+  },
+  "is_error": false,
+  "num_turns": 5,
+  "subtype": "success",
+  "api_error_status": null,
+  "result": "PLAN.md의 S15/D7 규칙대로 `make_chunk_id(doc, page, idx)`가 `f\"{doc}-p{page}-c{idx}\"`를 반환하도록 구현했고, `make_chunk_id(\"hr-guide\", 3, 5)` → `\"hr-guide-p3-c5\"` 실행으로 확인함.",
+  "ttft_ms": 3446,
+  "type": "result",
+  "duration_ms": 34417,
+  "uuid": "a796a004-c06c-4d1e-8874-626dff939e57",
+  "ttft_stream_ms": 2786,
+  "time_to_request_ms": 1884,
+  "first_content_frame_ms": 3441,
+  "queued_turn_count": 0
+}

@@ -1,0 +1,96 @@
+{
+  "duration_api_ms": 17578,
+  "stop_reason": "end_turn",
+  "session_id": "580704c7-e0b3-4072-aa8b-1ce6d00cb72c",
+  "total_cost_usd": 0.31443899999999997,
+  "usage": {
+    "input_tokens": 8,
+    "cache_creation_input_tokens": 66582,
+    "cache_read_input_tokens": 186775,
+    "output_tokens": 1074,
+    "output_tokens_details": {
+      "thinking_tokens": 64
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 66582,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "not_available",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 141,
+        "cache_read_input_tokens": 66259,
+        "cache_creation_input_tokens": 323,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 323
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard"
+  },
+  "modelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 8,
+      "outputTokens": 1074,
+      "cacheReadInputTokens": 186775,
+      "cacheCreationInputTokens": 66582,
+      "webSearchRequests": 0,
+      "costUSD": 0.31443899999999997,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 64,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "permission_denials": [],
+  "terminal_reason": "completed",
+  "fast_mode_state": "off",
+  "fast_mode_disabled_reason": "sdk_opt_in_required",
+  "subagent_stats": {
+    "spawned": 0,
+    "requested": {
+      "background": 0,
+      "foreground": 0,
+      "unset": 0
+    },
+    "started_in_background": 0,
+    "max_depth": 0,
+    "spawned_by_subagents": 0,
+    "completed": 0,
+    "failed": 0,
+    "killed": {
+      "parent": 0,
+      "user": 0,
+      "system": 0
+    },
+    "refused": {
+      "depth_limit": 0,
+      "concurrency_limit": 0,
+      "budget": 0
+    },
+    "by_type": {}
+  },
+  "is_error": false,
+  "num_turns": 4,
+  "subtype": "success",
+  "api_error_status": null,
+  "result": "S16(D8)에 따라 `emit`을 NDJSON(각 행 `json.dumps(..., ensure_ascii=False)`를 `\\n`으로 연결, 끝에 개행 없음, 빈 목록은 빈 문자열)으로 구현했고, PLAN.md의 예시와 완료 기준(각 줄이 `json.loads`로 파싱)을 실행해 확인함.",
+  "ttft_ms": 4708,
+  "type": "result",
+  "duration_ms": 39392,
+  "uuid": "3fb6ba94-d710-4168-94e1-de892c931d5b",
+  "ttft_stream_ms": 3779,
+  "time_to_request_ms": 1820,
+  "first_content_frame_ms": 4064,
+  "queued_turn_count": 0
+}

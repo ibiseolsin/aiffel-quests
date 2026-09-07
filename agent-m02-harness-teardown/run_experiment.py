@@ -34,8 +34,8 @@ WORKROOT = Path(
 
 # ── 고정 조건 (모든 셀에서 같다) ──────────────────────────────────────────────
 MODEL = "sonnet"
-MAX_TURNS = "12"
-ALLOWED_TOOLS = ["Read", "Write", "Edit", "Glob", "Grep"]
+MAX_TURNS = "30"
+ALLOWED_TOOLS = ["Read", "Write", "Edit", "Glob", "Grep", "Bash"]
 PERMISSION_MODE = "acceptEdits"
 SEED = 20260903
 
@@ -121,6 +121,7 @@ def run_cell(fixture: str, condition: str, rep: int, outdir: Path) -> dict:
         "duration_ms": res.get("duration_ms", 0),
         "wall_s": round(wall, 2),
         "is_error": int(bool(res.get("is_error"))),
+        "terminal_reason": res.get("terminal_reason", ""),
         "list_cost_usd": res.get("total_cost_usd", 0),
     }
     (outdir / f"{name}.json").write_text(json.dumps(res, ensure_ascii=False, indent=2),
@@ -134,7 +135,8 @@ def run_cell(fixture: str, condition: str, rep: int, outdir: Path) -> dict:
         encoding="utf-8")
     print(f" {'PASS' if passed else 'FAIL'}  "
           f"in={row['total_input_tokens']:,} out={row['output_tokens']:,} "
-          f"turns={row['num_turns']} {row['wall_s']}s")
+          f"turns={row['num_turns']} deny={row['permission_denials']} "
+          f"{row['wall_s']}s {row['terminal_reason']}")
     return row
 
 

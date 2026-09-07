@@ -1,0 +1,13 @@
+cell,fixture,condition,rep,passed,input_tokens,cache_creation_input_tokens,cache_read_input_tokens,output_tokens,total_input_tokens,num_turns,permission_denials,duration_ms,wall_s,is_error,terminal_reason,list_cost_usd
+f2-full-r2,f2,full,2,1,8,66582,186775,1074,253365,4,0,39392,42.91,0,completed,0.31443899999999997
+f3-folded-r1,f3,folded,1,1,8,57792,168666,999,226466,4,0,38050,41.71,0,completed,0.27490719999999996
+f1-full-r1,f1,full,1,1,8,68718,192732,991,261458,5,0,32819,37.67,0,completed,0.3233444
+f2-folded-r1,f2,folded,1,1,8,21412,205687,1177,227107,5,0,39441,44.44,0,completed,0.13857139999999998
+f3-full-r1,f3,full,1,1,10,30787,279050,1395,309847,6,0,47102,52.02,0,completed,0.192928
+f1-full-r2,f1,full,2,1,8,30283,223488,1123,253779,5,0,34417,39.08,0,completed,0.1770756
+f3-full-r2,f3,full,2,1,8,30289,223432,1203,253729,5,0,61182,65.18,0,completed,0.1778884
+f3-folded-r2,f3,folded,2,1,8,21264,205296,1071,226568,4,0,39212,43.44,0,completed,0.1368412
+f1-folded-r2,f1,folded,2,1,8,21331,205701,1080,227040,5,0,35763,41.31,0,completed,0.13728020000000002
+f1-folded-r1,f1,folded,1,1,8,21386,205671,1119,227065,5,0,36715,41.89,0,completed,0.1378842
+f2-full-r1,f2,full,1,1,8,29570,221853,1113,251431,4,0,38241,44.01,0,completed,0.1737966
+f2-folded-r2,f2,folded,2,1,10,21832,261184,1468,283026,6,0,41312,46.09,0,completed,0.1542648

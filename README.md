@@ -19,7 +19,7 @@
 | [fundamentals-m09](fundamentals-m09-main-quest/) | **Main Quest** — 내 업무의 AI 적용 지점 PoC | 미착수 | — |
 | [m04](m04-tool-design/) | 프롬프트 m04 도구 설계 — 식품 표시·광고 사전검토 안내 에이전트 | 슬라이스 1~6 완료 (2026-08-31) | 없음 — 설계 문서 과제 |
 | [m05](m05-rag-chatbot-service/) | 프롬프트 m05 Main Quest 3 — 식품 표시·광고 규정 안내 RAG 챗봇 | **제출 완료 (2026-09-01)** — S0~S13 + 구글폼 | [배포](https://ibiseolsin.github.io/aiffel-quests/m05/) |
-| [agent-m02](agent-m02-harness-teardown/) | 하네스 개선 실험 보고서 (GitHub Markdown 제출) — **마감 2026-09-08 무렵** | 미착수 | 없음 — 보고서 과제 |
+| [agent-m02](agent-m02-harness-teardown/) | 하네스 개선 실험 보고서 — 완료 단계를 접으면 후속 세션이 덜 틀리는가 | **실험 완료 (2026-09-07)** — 12셀 실측, 판정 **기각**. LMS 제출만 남음 | 없음 — 보고서 과제 |
 
 > `m04`/`m05` 두 폴더만 코스 슬러그 접두어가 없다. AI-Study 가 코스 슬러그 명명을 도입하기 전에
 > 만들어졌고 이미 배포된 Pages 경로가 걸려 있어 그대로 둔다 (노트의 `quest:` 도 이 이름을 가리킨다).

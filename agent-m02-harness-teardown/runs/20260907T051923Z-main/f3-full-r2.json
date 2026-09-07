@@ -1,0 +1,96 @@
+{
+  "duration_api_ms": 32568,
+  "stop_reason": "end_turn",
+  "session_id": "7573364c-1712-49a7-bd0b-8f3664fdf1ad",
+  "total_cost_usd": 0.1778884,
+  "usage": {
+    "input_tokens": 8,
+    "cache_creation_input_tokens": 30289,
+    "cache_read_input_tokens": 223432,
+    "output_tokens": 1203,
+    "output_tokens_details": {
+      "thinking_tokens": 27
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 30289,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "not_available",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 195,
+        "cache_read_input_tokens": 66498,
+        "cache_creation_input_tokens": 374,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 374
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard"
+  },
+  "modelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 8,
+      "outputTokens": 1203,
+      "cacheReadInputTokens": 223432,
+      "cacheCreationInputTokens": 30289,
+      "webSearchRequests": 0,
+      "costUSD": 0.1778884,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 27,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "permission_denials": [],
+  "terminal_reason": "completed",
+  "fast_mode_state": "off",
+  "fast_mode_disabled_reason": "sdk_opt_in_required",
+  "subagent_stats": {
+    "spawned": 0,
+    "requested": {
+      "background": 0,
+      "foreground": 0,
+      "unset": 0
+    },
+    "started_in_background": 0,
+    "max_depth": 0,
+    "spawned_by_subagents": 0,
+    "completed": 0,
+    "failed": 0,
+    "killed": {
+      "parent": 0,
+      "user": 0,
+      "system": 0
+    },
+    "refused": {
+      "depth_limit": 0,
+      "concurrency_limit": 0,
+      "budget": 0
+    },
+    "by_type": {}
+  },
+  "is_error": false,
+  "num_turns": 5,
+  "subtype": "success",
+  "api_error_status": null,
+  "result": "검증 완료: `LLM_BASE_URL` 있으면 `{\"base_url\": ...}` 반환, 옛 이름(`OLLAMA_URL`)만 있거나 아예 없으면 `KeyError` — 실제 실행으로 확인함.\n\n`src/config.py`의 `load_config(env)`를 PLAN.md S17/D9에 따라 구현: `env[\"LLM_BASE_URL\"]`만 읽어 `{\"base_url\": 값}`을 반환하고, 폴백 없이 없으면 `KeyError`를 낸다.",
+  "ttft_ms": 7142,
+  "type": "result",
+  "duration_ms": 61182,
+  "uuid": "7ff57feb-ca6c-4f5c-b11a-94c1778b2d12",
+  "ttft_stream_ms": 6254,
+  "time_to_request_ms": 2135,
+  "first_content_frame_ms": 6716,
+  "queued_turn_count": 0
+}

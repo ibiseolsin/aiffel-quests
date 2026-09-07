@@ -1,0 +1,96 @@
+{
+  "duration_api_ms": 18206,
+  "stop_reason": "end_turn",
+  "session_id": "21ba293b-05db-4c0d-936a-fad1ea1a5acb",
+  "total_cost_usd": 0.192928,
+  "usage": {
+    "input_tokens": 10,
+    "cache_creation_input_tokens": 30787,
+    "cache_read_input_tokens": 279050,
+    "output_tokens": 1395,
+    "output_tokens_details": {
+      "thinking_tokens": 134
+    },
+    "server_tool_use": {
+      "web_search_requests": 0,
+      "web_fetch_requests": 0
+    },
+    "service_tier": "standard",
+    "cache_creation": {
+      "ephemeral_1h_input_tokens": 30787,
+      "ephemeral_5m_input_tokens": 0
+    },
+    "inference_geo": "not_available",
+    "iterations": [
+      {
+        "input_tokens": 2,
+        "output_tokens": 142,
+        "cache_read_input_tokens": 66907,
+        "cache_creation_input_tokens": 463,
+        "cache_creation": {
+          "ephemeral_5m_input_tokens": 0,
+          "ephemeral_1h_input_tokens": 463
+        },
+        "type": "message"
+      }
+    ],
+    "speed": "standard"
+  },
+  "modelUsage": {
+    "claude-sonnet-5": {
+      "inputTokens": 10,
+      "outputTokens": 1395,
+      "cacheReadInputTokens": 279050,
+      "cacheCreationInputTokens": 30787,
+      "webSearchRequests": 0,
+      "costUSD": 0.192928,
+      "contextWindow": 1000000,
+      "maxOutputTokens": 64000,
+      "thinkingTokens": 134,
+      "canonicalModel": "claude-sonnet-5",
+      "provider": "firstParty",
+      "costBasis": "list"
+    }
+  },
+  "permission_denials": [],
+  "terminal_reason": "completed",
+  "fast_mode_state": "off",
+  "fast_mode_disabled_reason": "sdk_opt_in_required",
+  "subagent_stats": {
+    "spawned": 0,
+    "requested": {
+      "background": 0,
+      "foreground": 0,
+      "unset": 0
+    },
+    "started_in_background": 0,
+    "max_depth": 0,
+    "spawned_by_subagents": 0,
+    "completed": 0,
+    "failed": 0,
+    "killed": {
+      "parent": 0,
+      "user": 0,
+      "system": 0
+    },
+    "refused": {
+      "depth_limit": 0,
+      "concurrency_limit": 0,
+      "budget": 0
+    },
+    "by_type": {}
+  },
+  "is_error": false,
+  "num_turns": 6,
+  "subtype": "success",
+  "api_error_status": null,
+  "result": "S17 명세대로 `load_config(env)`가 `LLM_BASE_URL`만 읽어 `{\"base_url\": ...}`을 반환하고, 옛 이름(`OLLAMA_URL`)이나 키 부재 시 `KeyError`를 내도록 구현했다 — 실행해서 세 케이스(정상값, 옛 이름만 있음, 없음) 모두 확인함.",
+  "ttft_ms": 4563,
+  "type": "result",
+  "duration_ms": 47102,
+  "uuid": "c596010c-1e33-4075-8a86-1420d7e2202b",
+  "ttft_stream_ms": 3671,
+  "time_to_request_ms": 2443,
+  "first_content_frame_ms": 4560,
+  "queued_turn_count": 0
+}
