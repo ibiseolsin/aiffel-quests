@@ -1,0 +1,22 @@
+{"at": "2026-09-08T16:19:32.102206+00:00", "event": "run_start", "provider": "ollama", "model": "qwen3.5:2b", "resumed": false, "prior_messages": 0, "tools": ["list_files", "read_file", "write_file", "run_python"], "limits": {"max_steps": 20, "max_tool_calls": 60, "max_seconds": 600.0, "tool_timeout_seconds": 12.0, "max_tool_output_chars": 8000, "max_context_chars": 60000}}
+{"at": "2026-09-08T16:19:32.108413+00:00", "event": "model_call", "step": 1}
+{"at": "2026-09-08T16:19:34.572103+00:00", "event": "tool_call", "step": 1, "name": "list_files", "call_id": "call_amug0r6j"}
+{"at": "2026-09-08T16:19:34.573417+00:00", "event": "tool_result", "step": 1, "name": "list_files", "call_id": "call_amug0r6j", "ok": true, "truncated": false, "error": ""}
+{"at": "2026-09-08T16:19:34.575884+00:00", "event": "model_call", "step": 2}
+{"at": "2026-09-08T16:19:35.469027+00:00", "event": "tool_call", "step": 2, "name": "read_file", "call_id": "call_q5y3acfb"}
+{"at": "2026-09-08T16:19:35.472237+00:00", "event": "tool_result", "step": 2, "name": "read_file", "call_id": "call_q5y3acfb", "ok": false, "truncated": false, "error": "not_found"}
+{"at": "2026-09-08T16:19:35.474890+00:00", "event": "model_call", "step": 3}
+{"at": "2026-09-08T16:19:38.918456+00:00", "event": "tool_call", "step": 3, "name": "list_files", "call_id": "call_ksk3jt37"}
+{"at": "2026-09-08T16:19:38.919717+00:00", "event": "tool_result", "step": 3, "name": "list_files", "call_id": "call_ksk3jt37", "ok": true, "truncated": false, "error": ""}
+{"at": "2026-09-08T16:19:38.922134+00:00", "event": "model_call", "step": 4}
+{"at": "2026-09-08T16:19:42.839619+00:00", "event": "tool_call", "step": 4, "name": "read_file", "call_id": "call_e3ynwiy9"}
+{"at": "2026-09-08T16:19:42.842454+00:00", "event": "tool_result", "step": 4, "name": "read_file", "call_id": "call_e3ynwiy9", "ok": false, "truncated": false, "error": "not_found"}
+{"at": "2026-09-08T16:19:42.845372+00:00", "event": "model_call", "step": 5}
+{"at": "2026-09-08T16:19:46.514083+00:00", "event": "tool_call", "step": 5, "name": "read_file", "call_id": "call_z82tbjgx"}
+{"at": "2026-09-08T16:19:46.516913+00:00", "event": "tool_result", "step": 5, "name": "read_file", "call_id": "call_z82tbjgx", "ok": false, "truncated": false, "error": "not_found"}
+{"at": "2026-09-08T16:19:46.520907+00:00", "event": "model_call", "step": 6}
+{"at": "2026-09-08T16:19:47.681203+00:00", "event": "tool_call", "step": 6, "name": "read_file", "call_id": "call_7tbozvpm"}
+{"at": "2026-09-08T16:19:47.682621+00:00", "event": "tool_result", "step": 6, "name": "read_file", "call_id": "call_7tbozvpm", "ok": true, "truncated": true, "error": ""}
+{"at": "2026-09-08T16:19:47.686006+00:00", "event": "model_call", "step": 7}
+{"at": "2026-09-08T16:20:23.226044+00:00", "event": "provider_error", "error_type": "ProviderError"}
+{"at": "2026-09-08T16:20:23.229867+00:00", "event": "run_end", "status": "provider_error", "reason": "모델 제공자 오류: Ollama 응답이 완결되지 않았다 (done_reason='length')", "metrics": {"model_calls": 7, "tool_calls": 6, "tool_errors": 3, "approvals_granted": 0, "approvals_rejected": 0, "input_tokens": 12614, "output_tokens": 1606, "usage_known": false, "elapsed_seconds": 51.124}}

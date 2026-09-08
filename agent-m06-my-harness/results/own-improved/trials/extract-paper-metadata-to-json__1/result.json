@@ -1,0 +1,62 @@
+{
+  "id": "8732f908aec141c8bbec2b88d3f0b583",
+  "task_name": "extract-paper-metadata-to-json",
+  "trial_name": "extract-paper-metadata-to-json__1",
+  "started_at": "2026-09-08T16:16:16.044443+00:00",
+  "finished_at": "2026-09-08T16:18:12.960598+00:00",
+  "agent_result": {
+    "status": "context_limit",
+    "answer": "",
+    "metrics": {
+      "model_calls": 13,
+      "tool_calls": 13,
+      "tool_errors": 3,
+      "approvals_granted": 6,
+      "approvals_rejected": 0,
+      "input_tokens": 94696,
+      "output_tokens": 11047,
+      "usage_known": true,
+      "elapsed_seconds": 115.977,
+      "evidence_counts": {
+        "read": 3,
+        "write": 6,
+        "run_python": 2
+      },
+      "stop_reason": "대화가 61307자로 한도 60000자를 넘었다. 새 세션을 시작하거나 요청을 나누세요"
+    },
+    "n_input_tokens": 94696,
+    "n_output_tokens": 11047,
+    "n_cache_tokens": null,
+    "cost_usd": null
+  },
+  "fixture_sha256": {
+    "protected/papers/paper1.txt": "7571ff5b61ba21f531f763e41ce0d8b2cf0749b10030038a864cf866a50f8944",
+    "protected/papers/paper2.txt": "d44e52ed3da8a7bf9ec9a0117fd14f4414b9974a653498b827af35c484c8e443",
+    "protected/papers/paper3.txt": "5365e877f59e146e62c3da8be310c7b79234d484d452d0fd9eada66eca882081"
+  },
+  "verifier_result": {
+    "rewards": {
+      "reward": 1
+    },
+    "fixture_changes": [],
+    "reward": 1,
+    "checks_passed": 13,
+    "checks_total": 13,
+    "checks_failed": 0,
+    "checks_errors": 0,
+    "checks_skipped": 0,
+    "cleanup_incomplete": false,
+    "exit_code": 0,
+    "timed_out": false,
+    "truncated": false,
+    "details": {
+      "junit": "C:\\Users\\김지훈\\dev\\aiffel-quests\\agent-m06-my-harness\\vendor\\agent-terminal-benchmark\\jobs\\own-improved\\extract-paper-metadata-to-json__1\\verifier\\results.xml",
+      "stdout": "C:\\Users\\김지훈\\dev\\aiffel-quests\\agent-m06-my-harness\\vendor\\agent-terminal-benchmark\\jobs\\own-improved\\extract-paper-metadata-to-json__1\\verifier\\stdout.txt",
+      "stderr": "C:\\Users\\김지훈\\dev\\aiffel-quests\\agent-m06-my-harness\\vendor\\agent-terminal-benchmark\\jobs\\own-improved\\extract-paper-metadata-to-json__1\\verifier\\stderr.txt"
+    }
+  },
+  "exception_info": {
+    "exception_type": "AgentIncomplete",
+    "message": "context_limit"
+  }
+}

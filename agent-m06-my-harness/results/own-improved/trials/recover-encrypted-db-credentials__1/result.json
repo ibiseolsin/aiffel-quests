@@ -1,0 +1,72 @@
+{
+  "id": "d5f9a6fc735041338000771316edb123",
+  "task_name": "recover-encrypted-db-credentials",
+  "trial_name": "recover-encrypted-db-credentials__1",
+  "started_at": "2026-09-08T16:21:54.758373+00:00",
+  "finished_at": "2026-09-08T16:22:42.697932+00:00",
+  "agent_result": {
+    "status": "step_limit",
+    "answer": "",
+    "metrics": {
+      "model_calls": 20,
+      "tool_calls": 20,
+      "tool_errors": 11,
+      "approvals_granted": 8,
+      "approvals_rejected": 0,
+      "input_tokens": 119516,
+      "output_tokens": 4548,
+      "usage_known": true,
+      "elapsed_seconds": 46.749,
+      "evidence_counts": {
+        "write": 8,
+        "run_python": 6
+      },
+      "stop_reason": "모델 호출 한도 20회에 걸려 멈췄다"
+    },
+    "n_input_tokens": 119516,
+    "n_output_tokens": 4548,
+    "n_cache_tokens": null,
+    "cost_usd": null
+  },
+  "fixture_sha256": {
+    "db/.disk_blocks/.metadata": "d8edfff2a266f29f0ff5022d3be5b92c9225ad993bdbf59316a69752ab709471",
+    "db/.disk_blocks/block_000.bin": "0caf8d5bbd7a2afbc3369386311731003afafe92f882d54f2682eab81aac4ec5",
+    "db/.disk_blocks/block_001.bin": "c1b4898bdc272c41f6a90bfe4e4589696bc047328c88801ae16a14b2fefde9d9",
+    "db/.disk_blocks/block_002.bin": "7e1e71a19123772cee65ae4502fa2843f1f74204e1ca51ff364c0490f391726f",
+    "db/.disk_blocks/block_003.bin": "e45ae0580e8f0bea1b432e7a7c69ac18125912ff402ccf580d4ffb8fb9758816",
+    "db/.disk_blocks/block_004.bin": "cce2c62515416a66172b296b02ad850dd67cbdeadaef1cab4aa5576da603b20b",
+    "db/.disk_blocks/block_005.bin": "f397db662568ed05308b5a63df0359de14c5a16e4643441f2d484ceac21d767a",
+    "db/.disk_blocks/block_006.bin": "13b8231996b8a2e2250d3ce4151b679fb935f16619cfc005f01c254e6d1bbe50",
+    "db/.disk_blocks/block_007.bin": "f8d2b94f13e8d50f9b55972bcae00fd1d86f30788189cbe3d0b2fe78985019e3",
+    "db/.disk_blocks/block_garbage_1000.bin": "273553ae0c1a8e53dc554f7661a3461753289c5a60a20183a458a9a60fc1ee8e",
+    "db/.disk_blocks/block_garbage_255.bin": "11a6a146af9723d0cb7c16f7e280b01a558f34fa9edc7fa20b6fa2f0aa34f97a",
+    "db/.disk_blocks/block_garbage_256.bin": "10873f7236e3ff4211f7738783edb9af8e16dd421736bfbf8d84251ac473424e",
+    "db/.disk_blocks/block_garbage_999.bin": "7bc35cd05c9d145b3f58864548c8113bbfe097b7458f199edf88ddf6a2bd3e07",
+    "db/.recovery_notes.txt": "ca45a73c158735f45ea64a92335f550ecddd73a26e82b81799245d0a94ccd2dd"
+  },
+  "verifier_result": {
+    "rewards": {
+      "reward": 0
+    },
+    "fixture_changes": [],
+    "reward": 0,
+    "checks_passed": 0,
+    "checks_total": 30,
+    "checks_failed": 28,
+    "checks_errors": 0,
+    "checks_skipped": 2,
+    "cleanup_incomplete": false,
+    "exit_code": 1,
+    "timed_out": false,
+    "truncated": false,
+    "details": {
+      "junit": "C:\\Users\\김지훈\\dev\\aiffel-quests\\agent-m06-my-harness\\vendor\\agent-terminal-benchmark\\jobs\\own-improved\\recover-encrypted-db-credentials__1\\verifier\\results.xml",
+      "stdout": "C:\\Users\\김지훈\\dev\\aiffel-quests\\agent-m06-my-harness\\vendor\\agent-terminal-benchmark\\jobs\\own-improved\\recover-encrypted-db-credentials__1\\verifier\\stdout.txt",
+      "stderr": "C:\\Users\\김지훈\\dev\\aiffel-quests\\agent-m06-my-harness\\vendor\\agent-terminal-benchmark\\jobs\\own-improved\\recover-encrypted-db-credentials__1\\verifier\\stderr.txt"
+    }
+  },
+  "exception_info": {
+    "exception_type": "AgentIncomplete",
+    "message": "step_limit"
+  }
+}

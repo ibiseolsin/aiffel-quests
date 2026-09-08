@@ -35,6 +35,11 @@ EXCLUDED_TEMPLATE = """# {name} — 제출에서 제외한 경로와 이유
 | `.benchmark-cache/` | 원본 문제·참고 풀이·채점 코드 캐시 |
 | API 키·토큰 | 이 실험은 로컬 Ollama 를 써서 키가 없다. 코드·프롬프트·기록에 키를 쓰지 않는다 |
 
+담은 파일을 `api_key|secret|token|BEGIN PRIVATE` 로 훑어 확인했다 — 걸린 것은 `n_input_tokens` 류
+지표 이름과 A05 검증에 쓴 가짜 경로 `secret.txt` 뿐이다. 다만 `run-metadata.json` 과 시행별
+`result.json` 의 **절대경로에 실행한 컴퓨터의 계정 이름이 들어 있다.** 원래 실행 메타데이터를
+덮어쓰지 않기 위해 그대로 두었다.
+
 ## 담은 것
 
 - `run-metadata.json` — 실행 설정·한도·소스 해시 (원본 그대로)
@@ -58,6 +63,21 @@ def failed_checks(xml_path: Path) -> list[str]:
         if any(child.tag in {"failure", "error"} for child in case):
             names.append(f"{case.get('classname', '')}::{case.get('name', '')}".lstrip(":"))
     return names
+
+
+def export_report_only(name: str) -> None:
+    """`--compare` 로 만든 비교 보고서처럼 실행 폴더가 없는 산출물을 옮긴다."""
+    source = REPORTS / name
+    if not source.is_dir():
+        raise SystemExit(f"보고서 폴더가 없다: {source}")
+    target = RESULTS / name
+    target.mkdir(parents=True, exist_ok=True)
+    copied = []
+    for path in sorted(source.iterdir()):
+        if path.is_file():
+            shutil.copy2(path, target / path.name)
+            copied.append(path.name)
+    print(f"{name}: {', '.join(copied)} -> {target}")
 
 
 def export(name: str) -> None:
@@ -110,7 +130,10 @@ def main(names: list[str]) -> int:
     if not names:
         raise SystemExit(__doc__)
     for name in names:
-        export(name)
+        if (JOBS / name).is_dir():
+            export(name)
+        else:
+            export_report_only(name)
     return 0
 
 

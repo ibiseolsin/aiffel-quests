@@ -53,6 +53,27 @@ uv run run_harness.py --prompt "receipt.py 가 test_receipt.py 를 통과하지 
 
 고정 10문항 평가는 `IMPLEMENTATION_PLAN.md` 의 「실행 환경과 의존성」에 명령 그대로 있다.
 
+### 제출물 — 원문 7개 항목이 어디 있나
+
+| # | 원문이 요구한 것 | 이 저장소 |
+|---|---|---|
+| 1 | 실제 실행 프로젝트와 **두 버전의 소스**, 의존성 설정·잠금 파일, `README.md` | `my_harness/`(현재=개선 버전) · `pyproject.toml` · `uv.lock` · 이 파일. **기준 버전 소스**는 `results/own-baseline/run-metadata.json` 의 `source_sha256` `2f7e4a96…` 로 고정되어 있고 커밋 `8312f0f` 이 그 상태다 (개선은 `797f17bb…`, 커밋 `4de051e`) |
+| 2 | `PRD.md`, `DECISIONS.md`, `INTERFACES.md`, `ACCEPTANCE.md` | 같은 이름으로 이 폴더에 |
+| 3 | `IMPLEMENTATION_PLAN.md` 와 `EXPERIMENT_REPORT.md` | 같은 이름으로 이 폴더에 |
+| 4 | 고정 `benchmark/tasks.json` 과 두 실행의 설정·`run-metadata.json` | `results/own-baseline/tasks.json`(= manifest, sha256 `21f333a9…`) · `results/*/run-metadata.json` |
+| 5 | 두 실행의 **원본 trial 결과**와 하네스 실행 기록 | `results/*/trials/<문항>__1/result.json` · `agent-events.jsonl` |
+| 6 | 두 실행의 **10문항 전체** `trials.csv` · `report.json` · `index.html` | `results/own-baseline/`, `results/own-improved/`, 비교는 `results/comparison/` |
+| 7 | 개선 가설, 변경 내용, 좋아진 점·나빠진 점, 남은 한계 | `EXPERIMENT_REPORT.md` 의 「실패 분석과 개선 가설」 |
+
+제외한 경로와 이유, 다시 준비하는 방법은 `PROVENANCE.md` 와 `results/*/EXCLUDED.md`.
+
+### 결과 한 줄
+
+기준 `own-baseline` **0/10 (0.0%)** → 개선 `own-improved` **0/10 (0.0%)**. 점수는 그대로지만
+모델 호출 -18%, 경로 형식 오류 -22건, 목록 재조회 -56%, easy 문항 하나는 검사 12/13 → **13/13
+(이진 보상 1)** 이 됐다 — 다만 그 시행이 `context_limit` 으로 끝나 채점 규칙상 `error` 로
+분류되므로 점수에는 들어가지 않는다. 자세한 내용은 `EXPERIMENT_REPORT.md`.
+
 ### 문서 지도
 
 | 파일 | 내용 |

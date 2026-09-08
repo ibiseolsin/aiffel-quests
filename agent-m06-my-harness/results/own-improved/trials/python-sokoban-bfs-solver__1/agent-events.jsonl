@@ -1,0 +1,25 @@
+{"at": "2026-09-08T16:21:27.356497+00:00", "event": "run_start", "provider": "ollama", "model": "qwen3.5:2b", "resumed": false, "prior_messages": 0, "tools": ["list_files", "read_file", "write_file", "run_python"], "limits": {"max_steps": 20, "max_tool_calls": 60, "max_seconds": 600.0, "tool_timeout_seconds": 12.0, "max_tool_output_chars": 8000, "max_context_chars": 60000}}
+{"at": "2026-09-08T16:21:27.359612+00:00", "event": "model_call", "step": 1}
+{"at": "2026-09-08T16:21:29.989807+00:00", "event": "tool_call", "step": 1, "name": "list_files", "call_id": "call_pjywyq4y"}
+{"at": "2026-09-08T16:21:29.991699+00:00", "event": "tool_result", "step": 1, "name": "list_files", "call_id": "call_pjywyq4y", "ok": true, "truncated": false, "error": ""}
+{"at": "2026-09-08T16:21:29.994273+00:00", "event": "model_call", "step": 2}
+{"at": "2026-09-08T16:21:30.819757+00:00", "event": "tool_call", "step": 2, "name": "read_file", "call_id": "call_xqzgt6qb"}
+{"at": "2026-09-08T16:21:30.823436+00:00", "event": "tool_result", "step": 2, "name": "read_file", "call_id": "call_xqzgt6qb", "ok": false, "truncated": false, "error": "not_found"}
+{"at": "2026-09-08T16:21:30.826390+00:00", "event": "model_call", "step": 3}
+{"at": "2026-09-08T16:21:32.108798+00:00", "event": "tool_call", "step": 3, "name": "read_file", "call_id": "call_y2sqslcm"}
+{"at": "2026-09-08T16:21:32.112151+00:00", "event": "tool_result", "step": 3, "name": "read_file", "call_id": "call_y2sqslcm", "ok": false, "truncated": false, "error": "not_found"}
+{"at": "2026-09-08T16:21:32.114938+00:00", "event": "model_call", "step": 4}
+{"at": "2026-09-08T16:21:36.296251+00:00", "event": "tool_call", "step": 4, "name": "read_file", "call_id": "call_63crvsla"}
+{"at": "2026-09-08T16:21:36.296695+00:00", "event": "tool_result", "step": 4, "name": "read_file", "call_id": "call_63crvsla", "ok": false, "truncated": false, "error": "invalid_arguments"}
+{"at": "2026-09-08T16:21:36.299558+00:00", "event": "model_call", "step": 5}
+{"at": "2026-09-08T16:21:38.660763+00:00", "event": "tool_call", "step": 5, "name": "read_file", "call_id": "call_1w8oli7u"}
+{"at": "2026-09-08T16:21:38.661928+00:00", "event": "tool_result", "step": 5, "name": "read_file", "call_id": "call_1w8oli7u", "ok": true, "truncated": false, "error": ""}
+{"at": "2026-09-08T16:21:38.664916+00:00", "event": "model_call", "step": 6}
+{"at": "2026-09-08T16:21:43.560495+00:00", "event": "tool_call", "step": 6, "name": "read_file", "call_id": "call_xs6ce6zw"}
+{"at": "2026-09-08T16:21:43.560982+00:00", "event": "tool_result", "step": 6, "name": "read_file", "call_id": "call_xs6ce6zw", "ok": false, "truncated": false, "error": "invalid_arguments"}
+{"at": "2026-09-08T16:21:43.564277+00:00", "event": "model_call", "step": 7}
+{"at": "2026-09-08T16:21:49.118784+00:00", "event": "tool_call", "step": 7, "name": "read_file", "call_id": "call_kla9wtni"}
+{"at": "2026-09-08T16:21:49.119398+00:00", "event": "tool_result", "step": 7, "name": "read_file", "call_id": "call_kla9wtni", "ok": false, "truncated": false, "error": "invalid_arguments"}
+{"at": "2026-09-08T16:21:49.126237+00:00", "event": "model_call", "step": 8}
+{"at": "2026-09-08T16:21:53.363123+00:00", "event": "provider_error", "error_type": "HTTPStatusError"}
+{"at": "2026-09-08T16:21:53.367405+00:00", "event": "run_end", "status": "provider_error", "reason": "모델 제공자 오류: Ollama 가 HTTP 500 를 돌려줬다", "metrics": {"model_calls": 8, "tool_calls": 7, "tool_errors": 5, "approvals_granted": 0, "approvals_rejected": 0, "input_tokens": 16941, "output_tokens": 2325, "usage_known": false, "elapsed_seconds": 26.007}}

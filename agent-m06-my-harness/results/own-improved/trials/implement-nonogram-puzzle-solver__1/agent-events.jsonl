@@ -1,0 +1,25 @@
+{"at": "2026-09-08T16:25:54.445698+00:00", "event": "run_start", "provider": "ollama", "model": "qwen3.5:2b", "resumed": false, "prior_messages": 0, "tools": ["list_files", "read_file", "write_file", "run_python"], "limits": {"max_steps": 20, "max_tool_calls": 60, "max_seconds": 600.0, "tool_timeout_seconds": 12.0, "max_tool_output_chars": 8000, "max_context_chars": 60000}}
+{"at": "2026-09-08T16:25:54.448511+00:00", "event": "model_call", "step": 1}
+{"at": "2026-09-08T16:25:56.721836+00:00", "event": "tool_call", "step": 1, "name": "list_files", "call_id": "call_b0m2j6tp"}
+{"at": "2026-09-08T16:25:56.724076+00:00", "event": "tool_result", "step": 1, "name": "list_files", "call_id": "call_b0m2j6tp", "ok": true, "truncated": false, "error": ""}
+{"at": "2026-09-08T16:25:56.726591+00:00", "event": "model_call", "step": 2}
+{"at": "2026-09-08T16:25:57.756901+00:00", "event": "tool_call", "step": 2, "name": "read_file", "call_id": "call_82sjg5fv"}
+{"at": "2026-09-08T16:25:57.761672+00:00", "event": "tool_result", "step": 2, "name": "read_file", "call_id": "call_82sjg5fv", "ok": false, "truncated": false, "error": "not_found"}
+{"at": "2026-09-08T16:25:57.764308+00:00", "event": "model_call", "step": 3}
+{"at": "2026-09-08T16:26:01.782728+00:00", "event": "tool_call", "step": 3, "name": "list_files", "call_id": "call_p8lrnhuo"}
+{"at": "2026-09-08T16:26:01.785057+00:00", "event": "tool_result", "step": 3, "name": "list_files", "call_id": "call_p8lrnhuo", "ok": true, "truncated": false, "error": ""}
+{"at": "2026-09-08T16:26:01.788329+00:00", "event": "model_call", "step": 4}
+{"at": "2026-09-08T16:26:07.222534+00:00", "event": "tool_call", "step": 4, "name": "list_files", "call_id": "call_v6n07ukm"}
+{"at": "2026-09-08T16:26:07.224313+00:00", "event": "tool_result", "step": 4, "name": "list_files", "call_id": "call_v6n07ukm", "ok": true, "truncated": false, "error": ""}
+{"at": "2026-09-08T16:26:07.226777+00:00", "event": "model_call", "step": 5}
+{"at": "2026-09-08T16:26:10.432274+00:00", "event": "tool_call", "step": 5, "name": "write_file", "call_id": "call_6k8yfu6f"}
+{"at": "2026-09-08T16:26:10.441113+00:00", "event": "tool_result", "step": 5, "name": "write_file", "call_id": "call_6k8yfu6f", "ok": true, "truncated": false, "error": ""}
+{"at": "2026-09-08T16:26:10.443768+00:00", "event": "model_call", "step": 6}
+{"at": "2026-09-08T16:26:28.171734+00:00", "event": "tool_call", "step": 6, "name": "write_file", "call_id": "call_567wm4rr"}
+{"at": "2026-09-08T16:26:28.181525+00:00", "event": "tool_result", "step": 6, "name": "write_file", "call_id": "call_567wm4rr", "ok": true, "truncated": false, "error": ""}
+{"at": "2026-09-08T16:26:28.184297+00:00", "event": "model_call", "step": 7}
+{"at": "2026-09-08T16:26:29.892896+00:00", "event": "tool_call", "step": 7, "name": "run_python", "call_id": "call_3hxc3cpb"}
+{"at": "2026-09-08T16:26:30.374548+00:00", "event": "tool_result", "step": 7, "name": "run_python", "call_id": "call_3hxc3cpb", "ok": true, "truncated": false, "error": ""}
+{"at": "2026-09-08T16:26:30.377566+00:00", "event": "model_call", "step": 8}
+{"at": "2026-09-08T16:27:05.100849+00:00", "event": "provider_error", "error_type": "ProviderError"}
+{"at": "2026-09-08T16:27:05.104698+00:00", "event": "run_end", "status": "provider_error", "reason": "모델 제공자 오류: Ollama 응답이 완결되지 않았다 (done_reason='length')", "metrics": {"model_calls": 8, "tool_calls": 7, "tool_errors": 1, "approvals_granted": 2, "approvals_rejected": 0, "input_tokens": 22108, "output_tokens": 3955, "usage_known": false, "elapsed_seconds": 70.656}}

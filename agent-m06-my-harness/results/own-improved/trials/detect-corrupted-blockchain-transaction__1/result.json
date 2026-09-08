@@ -1,0 +1,56 @@
+{
+  "id": "0b4e527f261c4e17bde98ceabb05c93c",
+  "task_name": "detect-corrupted-blockchain-transaction",
+  "trial_name": "detect-corrupted-blockchain-transaction__1",
+  "started_at": "2026-09-08T16:19:31.847250+00:00",
+  "finished_at": "2026-09-08T16:20:23.939693+00:00",
+  "agent_result": {
+    "status": "provider_error",
+    "answer": "",
+    "metrics": {
+      "model_calls": 7,
+      "tool_calls": 6,
+      "tool_errors": 3,
+      "approvals_granted": 0,
+      "approvals_rejected": 0,
+      "usage_known": false,
+      "elapsed_seconds": 51.124,
+      "evidence_counts": {
+        "read": 1
+      },
+      "stop_reason": "모델 제공자 오류: Ollama 응답이 완결되지 않았다 (done_reason='length')"
+    },
+    "n_input_tokens": null,
+    "n_output_tokens": null,
+    "n_cache_tokens": null,
+    "cost_usd": null
+  },
+  "fixture_sha256": {
+    "app/blockchain_ledger.json": "9462ad2a46cc778474f7c29af6d6729d4ada731ee2125ccc3c403c6d88cbc86e"
+  },
+  "verifier_result": {
+    "rewards": {
+      "reward": 0
+    },
+    "fixture_changes": [],
+    "reward": 0,
+    "checks_passed": 2,
+    "checks_total": 11,
+    "checks_failed": 1,
+    "checks_errors": 8,
+    "checks_skipped": 0,
+    "cleanup_incomplete": false,
+    "exit_code": 1,
+    "timed_out": false,
+    "truncated": false,
+    "details": {
+      "junit": "C:\\Users\\김지훈\\dev\\aiffel-quests\\agent-m06-my-harness\\vendor\\agent-terminal-benchmark\\jobs\\own-improved\\detect-corrupted-blockchain-transaction__1\\verifier\\results.xml",
+      "stdout": "C:\\Users\\김지훈\\dev\\aiffel-quests\\agent-m06-my-harness\\vendor\\agent-terminal-benchmark\\jobs\\own-improved\\detect-corrupted-blockchain-transaction__1\\verifier\\stdout.txt",
+      "stderr": "C:\\Users\\김지훈\\dev\\aiffel-quests\\agent-m06-my-harness\\vendor\\agent-terminal-benchmark\\jobs\\own-improved\\detect-corrupted-blockchain-transaction__1\\verifier\\stderr.txt"
+    }
+  },
+  "exception_info": {
+    "exception_type": "AgentIncomplete",
+    "message": "provider_error"
+  }
+}

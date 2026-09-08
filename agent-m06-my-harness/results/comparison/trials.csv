@@ -1,0 +1,11 @@
+task,difficulty,category,attempt,trial_name,trial_path,raw_reward,status,reason,elapsed_seconds,n_input_tokens,n_cache_tokens,n_output_tokens,cost_usd
+extract-paper-metadata-to-json,easy,data-processing,1,extract-paper-metadata-to-json__1,extract-paper-metadata-to-json__1\result.json,1,error,AgentIncomplete,116.916155,94696,,11047,
+python-sudoku-solver-backtracking,easy,games,1,python-sudoku-solver-backtracking__1,python-sudoku-solver-backtracking__1\result.json,0,error,AgentIncomplete,78.796185,146786,,7705,
+detect-corrupted-blockchain-transaction,medium,debugging,1,detect-corrupted-blockchain-transaction__1,detect-corrupted-blockchain-transaction__1\result.json,0,error,AgentIncomplete,52.092443,,,,
+implement-go-board-analyzer,medium,software-engineering,1,implement-go-board-analyzer__1,implement-go-board-analyzer__1\result.json,0,error,AgentIncomplete,62.950488,127001,,6790,
+python-sokoban-bfs-solver,medium,games,1,python-sokoban-bfs-solver__1,python-sokoban-bfs-solver__1\result.json,0,error,AgentIncomplete,27.504586,,,,
+recover-encrypted-db-credentials,medium,data-processing,1,recover-encrypted-db-credentials__1,recover-encrypted-db-credentials__1\result.json,0,error,AgentIncomplete,47.939559,119516,,4548,
+advanced-json-to-rfc4180-csv-converter,hard,data-processing,1,advanced-json-to-rfc4180-csv-converter__1,advanced-json-to-rfc4180-csv-converter__1\result.json,0,error,AgentIncomplete,56.767872,43297,,5739,
+implement-depgraph-dependency-resolver,hard,system-administration,1,implement-depgraph-dependency-resolver__1,implement-depgraph-dependency-resolver__1\result.json,0,error,AgentIncomplete,44.981884,109391,,4440,
+implement-lz77-file-compressor,hard,data-processing,1,implement-lz77-file-compressor__1,implement-lz77-file-compressor__1\result.json,0,error,AgentIncomplete,89.476595,,,,
+implement-nonogram-puzzle-solver,hard,games,1,implement-nonogram-puzzle-solver__1,implement-nonogram-puzzle-solver__1\result.json,0,error,AgentIncomplete,73.126865,,,,
