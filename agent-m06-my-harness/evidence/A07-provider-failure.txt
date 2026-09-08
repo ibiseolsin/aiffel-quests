@@ -1,0 +1,10 @@
+
+상태: provider_error — 완료되지 않았다
+이유: 모델 제공자 오류: Ollama 연결 실패 (ConnectError)
+
+── 근거 ──
+읽은 파일: 없음
+바꾼 파일: 없음
+모델 1회 · 도구 0회(실패 0) · 2.074초 · 토큰 미확인 (unknown ≠ 0)
+기록: runs\20260908T155236-867ebd\events.jsonl
+exit=1

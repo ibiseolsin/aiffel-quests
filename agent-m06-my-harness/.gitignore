@@ -1,0 +1,18 @@
+# 내려받은 실습 자료·원본 문제·캐시 — 제출/커밋에서 제외한다.
+# 다시 준비하는 방법과 해시는 PROVENANCE.md 에 적었다.
+vendor/
+
+# 실행 산출물 원본 위치 (제출용 발췌는 results/ 에 복사한다)
+jobs/
+reports/
+.benchmark-cache/
+
+# 파이썬
+__pycache__/
+*.pyc
+.venv/
+
+# 내 하네스가 만드는 로컬 상태
+runs/
+sessions/
+work/

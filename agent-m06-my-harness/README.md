@@ -4,13 +4,76 @@
 - 커리큘럼: https://learn.modulabs.co.kr/camp/136/courses/2196/node-version/5358/steps/27048 (12강, step 27048–27059)
 - 강의노트: `../../AI-Study/notes/aiffel/agent-m06-my-harness.md`
 - 원문: `../../AI-Study/sources/aiffel/agent-m06-my-harness/raw.md`
-- 상태: **미착수** · LMS 진행률 0% · **마감 임박 (2026-09-08 기준)**
+- 상태: **구현·두 평가 완료** (2026-09-09) · 남은 것은 LMS 제출 클릭
 - 제출: LMS 커리큘럼의 `프로젝트 제출` 항목 (`대기중`) — `제출하기 이동` 링크는 12강 페이지 상단
 
 > 원문 12강에는 별도 `## 과제` 절도, 배점표 형태의 루브릭도 없다. **제출 요건이 본문 산문에 녹아 있다.**
-> 아래는 그 문장들을 요건별로 모은 것이고, 표현은 원문을 따랐다.
+> 「원문 요건 정리」 이하는 그 문장들을 요건별로 모은 것이고, 표현은 원문을 따랐다.
 
 ---
+
+## 내가 만든 것
+
+`my_harness` — 모델 요청 → 인자 검사 → 도구 실행 → 결과 반환의 반복을 **직접 구현한** CLI 하네스.
+완성된 에이전트 CLI 나 Agent SDK 에 반복을 넘기지 않는다. 제공 예제(`harness_lab.local_agent`)를
+호출하지도 않는다 — 벤치마크 어댑터도 내 `Harness` 를 돌린다.
+
+```
+my_harness/
+  contracts.py          내부 계약(제공자·도구·반복이 공유) · 한도 · 종료 상태 7종
+  loop.py               ★ 반복 본체 (모델 호출 · 인자 검사 · 도구 실행 · 종료 판정)
+  providers.py          Ollama 네이티브 /api/chat 어댑터 (num_ctx 를 대화 한도에서 유도)
+  tools.py              도구 5개 + JSON Schema 검사 + 실패 시 hint
+  workspace.py          경로 경계 (절대경로 · .. · 숨김 · 심링크 · resolve 확인)
+  execute.py            시간 제한 있는 Python 실행 (OS 샌드박스가 아니다)
+  approval.py           diff 표시 + sha256 결속 승인 (EOF 는 거절)
+  session.py            세션 파일 영속 + 이벤트 JSONL
+  benchmark_adapter.py  고정 10문항 평가 연결 (solve_task)
+run_harness.py          CLI 진입점
+fixtures/               내 실습 자료 (모임 공지 · 결함 있는 계산 코드 + 테스트)
+tests/                  모의 모델로 반복·한도·경계 검증 (39건)
+scripts/                smoke 점검 · 제출용 결과 추출
+```
+
+### 실행법
+
+```bash
+uv sync --extra dev
+uv run python -m pytest -q                     # 모의 검증 39건 (실제 모델 성능이 아니다)
+uv run python -c "import shutil; shutil.copytree('fixtures','work')"
+ollama serve                                   # 다른 터미널
+uv run run_harness.py --prompt "work 폴더의 meeting.txt 를 읽고 모임 시각과 준비물을 알려 줘."   --workspace work --session reading
+```
+
+코드 수정 작업(승인 필요, 테스트 대상 고정):
+
+```bash
+uv run run_harness.py --prompt "receipt.py 가 test_receipt.py 를 통과하지 못한다. 테스트는 바꾸지 말고 고쳐 줘."   --workspace work --session receipt-fix --test-target "-s . -p test_receipt.py"
+```
+
+고정 10문항 평가는 `IMPLEMENTATION_PLAN.md` 의 「실행 환경과 의존성」에 명령 그대로 있다.
+
+### 문서 지도
+
+| 파일 | 내용 |
+|---|---|
+| `PRD.md` | 사용자 이야기(D01)와 R01~R08 구체화, 범위와 제외 |
+| `DECISIONS.md` | D01~D09 상태·선택·이유 (D08·D09 는 DEFERRED) |
+| `INTERFACES.md` | 세 연결의 입력·출력·오류 + 구체적 계약 한 개(`write_file`) |
+| `ACCEPTANCE.md` | A01~A12 상태와 **실행 증거**, 내 시나리오 정상/실패 |
+| `IMPLEMENTATION_PLAN.md` | 실행 환경·의존성·순서와 단계별 기록 |
+| `EXPERIMENT_REPORT.md` | 기준·개선 두 평가, 실패 분석, 가설, 좋아진 점·나빠진 점·한계 |
+| `PLAN.md` | 수직 슬라이스 목록과 고정한 실행 조건 |
+| `PROVENANCE.md` | 내려받은 자료의 주소·해시·재준비 방법, 제외 경로와 이유 |
+| `results/` | 두 실행의 `run-metadata.json` · `trials.csv` · `report.json` · `index.html` · 시행별 원본 결과 |
+| `evidence/` | 실제 모델 검증 콘솔 기록 (A01·A03~A09) |
+
+---
+
+# 원문 요건 정리
+
+아래는 착수 전에 원문 문장을 요건별로 모아 둔 것이다. 실제로 무엇을 어떻게 했는지는
+위의 「내가 만든 것」과 `ACCEPTANCE.md` · `EXPERIMENT_REPORT.md` 에 있다.
 
 ## 만들 것
 
