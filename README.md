@@ -21,6 +21,7 @@
 | [m05](m05-rag-chatbot-service/) | 프롬프트 m05 Main Quest 3 — 식품 표시·광고 규정 안내 RAG 챗봇 | **제출 완료 (2026-09-01)** — S0~S13 + 구글폼 | [배포](https://ibiseolsin.github.io/aiffel-quests/m05/) |
 | [agent-m02](agent-m02-harness-teardown/) | 하네스 개선 실험 보고서 — 완료 단계를 접으면 후속 세션이 덜 틀리는가 | **실험 완료 (2026-09-07)** — 12셀 실측, 판정 **기각**. LMS 제출만 남음 | 없음 — 보고서 과제 |
 | [agent-m03](agent-m03-multi-agent/) | 멀티에이전트 A/B/C 비교 실험 → 채택·축소·폐기 판정문 | 미착수 | 없음 — 보고서 과제 |
+| [agent-m06](agent-m06-my-harness/) | **프로젝트 제출** — 나만의 하네스 구현체 + 고정 10문항 baseline·improved 비교 실험 | 미착수 · **마감 임박** | 없음 — 구현체 + 실험 보고서 |
 
 > `m04`/`m05` 두 폴더만 코스 슬러그 접두어가 없다. AI-Study 가 코스 슬러그 명명을 도입하기 전에
 > 만들어졌고 이미 배포된 Pages 경로가 걸려 있어 그대로 둔다 (노트의 `quest:` 도 이 이름을 가리킨다).
