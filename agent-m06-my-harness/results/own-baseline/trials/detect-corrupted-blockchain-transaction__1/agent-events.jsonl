@@ -1,0 +1,13 @@
+{"at": "2026-09-08T15:58:42.738926+00:00", "event": "run_start", "provider": "ollama", "model": "qwen3.5:2b", "resumed": false, "prior_messages": 0, "tools": ["list_files", "read_file", "write_file", "run_python"], "limits": {"max_steps": 20, "max_tool_calls": 60, "max_seconds": 600.0, "tool_timeout_seconds": 12.0, "max_tool_output_chars": 8000, "max_context_chars": 60000}}
+{"at": "2026-09-08T15:58:42.742334+00:00", "event": "model_call", "step": 1}
+{"at": "2026-09-08T15:58:45.436648+00:00", "event": "tool_call", "step": 1, "name": "list_files", "call_id": "call_vx5d4rnu"}
+{"at": "2026-09-08T15:58:45.438342+00:00", "event": "tool_result", "step": 1, "name": "list_files", "call_id": "call_vx5d4rnu", "ok": true, "truncated": false, "error": ""}
+{"at": "2026-09-08T15:58:45.441416+00:00", "event": "model_call", "step": 2}
+{"at": "2026-09-08T15:58:46.443569+00:00", "event": "tool_call", "step": 2, "name": "read_file", "call_id": "call_7ap70t41"}
+{"at": "2026-09-08T15:58:46.444617+00:00", "event": "tool_result", "step": 2, "name": "read_file", "call_id": "call_7ap70t41", "ok": false, "truncated": false, "error": "not_found"}
+{"at": "2026-09-08T15:58:46.447282+00:00", "event": "model_call", "step": 3}
+{"at": "2026-09-08T15:58:50.052969+00:00", "event": "tool_call", "step": 3, "name": "read_file", "call_id": "call_7vdl1kel"}
+{"at": "2026-09-08T15:58:50.054849+00:00", "event": "tool_result", "step": 3, "name": "read_file", "call_id": "call_7vdl1kel", "ok": true, "truncated": true, "error": ""}
+{"at": "2026-09-08T15:58:50.058174+00:00", "event": "model_call", "step": 4}
+{"at": "2026-09-08T15:59:29.643426+00:00", "event": "provider_error", "error_type": "ProviderError"}
+{"at": "2026-09-08T15:59:29.646734+00:00", "event": "run_end", "status": "provider_error", "reason": "모델 제공자 오류: Ollama 응답이 완결되지 않았다 (done_reason='length')", "metrics": {"model_calls": 4, "tool_calls": 3, "tool_errors": 1, "approvals_granted": 0, "approvals_rejected": 0, "input_tokens": 4314, "output_tokens": 596, "usage_known": false, "elapsed_seconds": 46.905}}

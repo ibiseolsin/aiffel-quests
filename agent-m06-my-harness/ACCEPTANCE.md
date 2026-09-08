@@ -6,15 +6,16 @@
 - 코드 버전: `own-baseline` = 커밋 시점의 `my_harness/` (각 실행의 `run-metadata.json` 에 `source_sha256`)
 - 실행 환경: Windows 11 / Python 3.13.15 / `uv` 0.12.8
 - provider · 모델: Ollama 네이티브 `/api/chat` · `qwen3.5:2b` (Q8_0, 2.3B), `temperature 0.6` · `top_p 0.95` · `seed 7`
-- 실습 fixture: `fixtures/meeting.txt`, `fixtures/receipt.py`, `fixtures/test_receipt.py` (전부 내가 만든 것)
-- 증거 파일: `evidence/` · 모의 검증: `uv run python -m pytest -q` → **39 passed**
+- 실습 fixture: `fixtures/meeting.txt`, `fixtures/receipt.py` + `test_receipt.py`(버그 3개·테스트 5개), `fixtures/greeting.py` + `test_greeting.py`(버그 1개·테스트 2개) — 전부 내가 만든 것
+- 증거 파일: `evidence/` · 모의 검증: `uv run python -m pytest -q` → **48 passed** (기준 버전 시점 39건 + 개선 변경의 회귀 검사 9건)
+- **두 버전**: `own-baseline` 소스 `2f7e4a96…`, `own-improved` 소스 `797f17bb…` (각 실행의 `run-metadata.json`). 아래 표에서 버전이 갈리는 항목은 둘을 함께 적었다.
 
 | ID | 관련 요구 | 상황과 행동 | 기대 결과 | 상태 | 실제 증거 |
 |---|---|---|---|---|---|
 | A01 | R01~R03 | 실습 파일을 **실제 모델**로 읽어 요약 요청 | 실제 읽기 기록과 원문에 맞는 근거 | **PASS** | `evidence/A01-read.txt` — 도구 2회(list_files→read_file), 답의 "9월 15일 화요일 저녁 7시 30분", "노트북·충전기·실습 로그 출력물 1부", "3층 세미나실 B" 가 fixture 원문과 일치. 근거 표시 `읽은 파일: meeting.txt` |
 | A02 | R02 | **모의 모델**이 도구 요청 후 결과를 받아 종료 | 인자 검사·실행·결과 연결·종료 | **PASS** (모의) | `tests/test_loop.py::test_tool_call_is_validated_executed_and_returned` — 스키마 검사 → 실행 → 봉투 반환 → `completed`, 모델 2회·도구 1회 |
-| A03 | R04~R05 | 결함 코드 수정 요청 (승인 `y`) | 변경 승인 후 적용, 지정 테스트 성공 | **FAIL** (baseline) | `evidence/A03-baseline-fail.txt` — 도구 7회까지 진행(receipt.py 1회 기록, run_tests 2회) 후 `provider_error: done_reason='length'` 로 반복이 죽었다. 테스트는 여전히 실패(`evidence/A03-baseline-receipt-after.py`). **원인과 남은 구현을 `EXPERIMENT_REPORT.md` 에 적었고, 개선 버전에서 재실행한다** |
-| A04 | R05 | 파일 변경을 **거절** | 파일 내용이 변경되지 않음 | **PASS** | `evidence/A04-reject.txt` — 거절 2회 기록, `receipt.py` sha256 `cb3f8581…` 실행 전후 동일. (같은 실행은 A03 과 같은 이유로 `provider_error` 로 끝났지만, 거절→파일 불변은 확인됐다) · 모의: `tests/test_loop.py::test_rejected_change_keeps_the_run_going_and_the_file_unchanged` |
+| A03 | R04~R05 | 결함 코드 수정 요청 (승인 `y`) | 변경 승인 후 적용, 지정 테스트 성공 | **PASS** (개선 버전) / **FAIL** (기준 버전) | **개선 버전 · `evidence/A03-improved-greeting.txt`**: `run_tests` 실패 확인 → `test_greeting.py`·`greeting.py` 읽기 → diff 표시(`수정 greeting.py · +4 -9 줄 · 126 byte · sha256 1e502e55…`) → `y` 승인 → 적용 → `run_tests` **exit 0** → `completed`, 종료 코드 0. 하네스 밖에서 `python -m unittest` 재확인 `OK`, `test_greeting.py` 는 diff 없음. 파일 sha256 `50337f13…` → `1e502e55…`<br>**기준 버전 · `evidence/A03-baseline-fail.txt`**: 같은 종류의 작업이 `provider_error: done_reason='length'` 로 죽었다.<br>**더 어려운 결함(`receipt.py`, 버그 3개)은 개선 버전에서도 실패** — `evidence/A03-improved.txt`: 14단계를 다 쓰고 `step_limit`, 테스트 실패가 2개에서 4개로 늘었다. 승인·적용·테스트 경로는 전부 동작했고 실패는 **모델의 코드 품질**이다 (2.3B). 원인 구분을 `EXPERIMENT_REPORT.md` 에 적었다 |
+| A04 | R05 | 파일 변경을 **거절** | 파일 내용이 변경되지 않음 | **PASS** (두 버전) | 개선 버전 `evidence/A04-reject-improved.txt` — 거절 3회, `greeting.py` sha256 `50337f13…` 실행 전후 **동일**, 근거 표시 `바꾼 파일: 없음` · 기준 버전 `evidence/A04-reject.txt` — 거절 2회, `receipt.py` sha256 `cb3f8581…` 전후 동일 · 모의: `tests/test_loop.py::test_rejected_change_keeps_the_run_going_and_the_file_unchanged` |
 | A05 | R05 | 허용 폴더 밖 읽기·쓰기 요청 | **코드의 경로 검사**로 거부 | **PASS** | `evidence/A05-path-escape.txt` — 실제 모델이 `C:/Windows/win.ini` 와 `../../secret.txt` 를 호출 → `path_rejected: 절대경로가 작업 폴더를 벗어난다` / `상위 폴더 이동(..)은 허용하지 않는다`. 두 번 다 도구 실패로 모델에 반환되고 작업은 계속됐다 · 모의: `tests/test_tools.py` 의 경로 검사 6건 |
 | A06 | R02 | **모의 모델**이 계속 도구 호출 | 합의한 한도에서 종료, 이유 표시 | **PASS** (모의) | `tests/test_loop.py::test_repeating_mock_stops_at_the_step_limit` → `step_limit` ("모델 호출 한도 3회에 걸려 멈췄다"), `::test_repeating_mock_stops_at_the_tool_call_limit` → `tool_limit`, `::test_total_timeout_is_reported_as_timeout` → `timeout` |
 | A07 | R01~R02 | 잘못된 인자 / 모델 연결 실패 | 오류를 보여 주고 성공으로 기록하지 않음 | **PASS** | 도구 인자 오류: `evidence/A05-path-escape.txt` (모델에 반환, 작업 계속, 종료 코드 0) · 연결 실패: `evidence/A07-provider-failure.txt` — `--host http://127.0.0.1:9` 로 `provider_error: Ollama 연결 실패 (ConnectError)`, **종료 코드 1**, 토큰 미확인 표시 |
@@ -24,8 +25,9 @@
 | A11 | R08 | 고정 10문항 기준 평가 | 원본 결과·설정, 오류·미완료 포함 점수 | **PASS** | `results/own-baseline/` — 아래 표 |
 | A12 | R08 | 가설에 따른 변경 후 동일 조건 재평가 | 원본 결과와 비교표, 코드 변경·결론 | **PASS** | `results/own-improved/`, `results/comparison/`, `EXPERIMENT_REPORT.md` |
 
-> **공통 필수 항목을 어렵다는 이유로 DEFERRED 로 바꾸지 않았다.** A03 은 `FAIL` 로 남기고 원인을 적었다.
-> A10 만 D08(추가 provider 미선택) 때문에 `DEFERRED` 다.
+> **공통 필수 항목을 어렵다는 이유로 DEFERRED 로 바꾸지 않았다.** 기준 버전에서 `FAIL` 이던 A03 은
+> 원인을 기록한 뒤 개선 버전에서 재실행해 `PASS` 로 바꿨고, 개선 버전에서도 실패한 더 어려운 결함
+> (`receipt.py`)은 실패로 남기고 원인을 구분해 적었다. A10 만 D08(추가 provider 미선택) 때문에 `DEFERRED` 다.
 > **Oracle 환경 검사나 단위 테스트 성공을 A11·A12 의 실제 모델 평가 증거로 쓰지 않았다.**
 
 ## 내 사용자 이야기의 시나리오 (D01)

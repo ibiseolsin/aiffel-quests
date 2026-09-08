@@ -23,9 +23,9 @@
 
 | ID | 제품이 해야 할 일 | 이 프로젝트에서 구체화한 내용 |
 |---|---|---|
-| R01 | 요청을 받고 진행·완료·실패를 구분한다 | CLI `run_harness.py --prompt` 한 번 = 작업 하나. 종료 상태 8종을 구분해 표준출력과 `runs/<id>/events.jsonl` 에 남긴다: `completed` `step_limit` `tool_limit` `timeout` `context_limit` `rejected` `failed` `provider_error` |
+| R01 | 요청을 받고 진행·완료·실패를 구분한다 | CLI `run_harness.py --prompt` 한 번 = 작업 하나. 종료 상태 8종을 구분해 표준출력과 `runs/<id>/events.jsonl` 에 남긴다: `completed` `step_limit` `tool_limit` `timeout` `context_limit` `provider_error` `failed` (거절은 종료 상태가 아니다 — 그 도구 호출만 실패시키고 반복을 계속한다) |
 | R02 | 모델→도구 요청→검사→실행→결과 반환을 **직접 구현** | `my_harness/loop.py` 의 `Harness.run()`. 한도: 모델 12회·도구 30회·전체 300초·도구당 30초·도구 출력 16,000자·대화 200,000자. 오류 정책은 R07 표를 따른다 |
-| R03 | 허용한 자료를 읽고 근거를 확인할 수 있는 결과 | 첫 도구 `list_files`·`read_file`. 작업 폴더는 `--workspace` 하나. 결과 형식: 최종 답 + `읽은 파일 목록` + 종료 이유를 한 화면에 표시 |
+| R03 | 허용한 자료를 읽고 근거를 확인할 수 있는 결과 | 첫 도구 `list_files`·`read_file`. 작업 폴더는 `--workspace` 하나. 결과 형식: 최종 답 + `읽은 파일 목록` + 종료 이유를 한 화면에 표시. 실행 시작 시 하네스가 작업 폴더를 관측해(`orientation.brief`) 첫 메시지에 실제 파일 목록을 넣는다 |
 | R04 | 코드 변경을 보여 주고 제한된 테스트로 검증 | `write_file` 은 통합 diff 를 표시하고 승인을 받는다. `run_tests` 는 **`--test-target` 로 미리 고정한 unittest 대상만** 실행한다 (모델이 대상을 바꿀 수 없다) |
 | R05 | 권한 없는 경로·승인 없는 변경을 막는다 | 경로 검사는 도구 코드 안에서 모델 지시와 무관하게 적용 (절대경로·`..`·숨김·심링크·폴더 이탈 거부). 승인 단위는 **파일 하나의 변경 내용 하나**. 거절하면 그 도구 호출만 실패로 모델에 돌려주고 작업은 계속한다 |
 | R06 | 실행 기록과 세션을 구분하고 이어갈 범위를 설명 | 세션은 `sessions/<name>.json` 에 **파일로 영속**. 저장 항목은 모델에 보이는 대화(도구 인자·결과 포함)와 세션 설정. 재시작 후 같은 `--session` 이름이면 복원한다. 설정(provider·model·workspace)이 다르면 복원을 거부한다. **키는 저장하지 않는다** |

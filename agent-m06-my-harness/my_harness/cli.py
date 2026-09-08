@@ -15,6 +15,7 @@ import shlex
 import sys
 import uuid
 
+from . import orientation
 from .approval import AutoApprover, ConsoleApprover
 from .contracts import Limits, ProviderError
 from .loop import Harness
@@ -102,9 +103,10 @@ async def execute(args: argparse.Namespace) -> int:
                       settings=settings, on_progress=progress)
     if session:
         progress(f"세션 {session.name}: " + ("이전 대화를 복원했다" if resuming else "새로 시작한다"))
+    prompt = args.prompt + "\n\n" + orientation.brief(orientation.survey(workspace))
     try:
         try:
-            outcome = await harness.run(args.prompt)
+            outcome = await harness.run(prompt)
         except ValueError as exc:
             print(f"사용법 오류: {exc}", file=sys.stderr)
             return 2

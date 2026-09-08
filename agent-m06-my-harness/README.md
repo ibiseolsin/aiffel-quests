@@ -358,42 +358,26 @@ async def solve_task(instruction, workspace, logs_dir, options):
 
 ---
 
-## 착수 전에 확인해야 하는 빈칸
+## 착수 전 빈칸 — 확인 결과
 
-강의노트 「열린 질문」과 같은 항목이다. 원문에 없어서 실습 ZIP 을 받아야 확인된다.
+실습 ZIP 을 받아 확인한 값이다 (2026-09-09).
 
-- **실습 ZIP 의 실제 다운로드 링크** (위 표의 주소는 확인 필요)
-- **`PRD.md` 의 R01~R08 전문** — 본문은 R01·R02·R05·R07·R08 을 참조만 한다
-- **`ACCEPTANCE.md` A01~A12 의 정확한 문장** — 위 표는 본문 언급에서 재구성한 것
-- **D09 의 정확한 항목명** — 취소·동시 실행·원격 접속을 한 항목으로 묶은 것인지 불분명
-- **`solve_task` 반환 사전의 정확한 필드 구조**와 사용량 처리 방식
-- **`--self-check` 가 어느 명령의 옵션이고 무엇을 검사하는지**
-- **`BENCHMARK_ERRATA.md` 의 정정 내역 전체** (원문은 두 건만 언급)
-- **`configured_path` 류의 환경변수 기본값** 및 `CREDENTIALS_PATH` 상당 설정
+| 빈칸 | 확인한 것 |
+|---|---|
+| 실습 ZIP 의 실제 링크 | 표의 주소·릴리스 태그가 GitHub 릴리스 API 와 일치했다. 크기·SHA256 은 `PROVENANCE.md` |
+| `PRD.md` R01~R08 전문 | 설계 키트의 `PRD.md` 에 표로 있다. 내가 구체화한 문장은 이 폴더의 `PRD.md` |
+| `ACCEPTANCE.md` A01~A12 문장 | 설계 키트 원문과 위 표가 일치했다 (A09·A10 만 조건부 DEFERRED 허용) |
+| D09 의 항목명 | 원문도 "취소, 진행 이벤트, 동시 실행, 원격 접속 등에서 필요한 것을 선택하거나 미룬다" 로 **묶어서** 제시한다. 나는 진행 이벤트만 넣고 나머지를 미뤘다 |
+| `solve_task` 반환 필드 | `{"status", "answer", "metrics"}`. `metrics.usage_known` 이 참일 때만 벤치마크가 토큰을 기록하고, 아니면 `null` 로 남긴다. `status != "completed"` 면 `exception_info: AgentIncomplete` 가 붙어 **점수에서 error 로 분류**된다 |
+| `--self-check` | `harness_lab.bench` 의 옵션이다. 참고 풀이로 채점 경로를 검증하는 운영자 기능이고 학생 점수가 아니다. 이 실험에서는 실행하지 않았다 |
+| `BENCHMARK_ERRATA.md` 정정 전체 | 세 건이다 — 스도쿠 I/O 계약 공개·검사 22개로 강화, 블록체인 정답을 원본 원장에서 계산·원장 불변 검사(11개), **모든 문항의 입력 해시 검사**. 평가 ID `terminal-bench-pro-local-port-v2` |
+| `configured_path`·`CREDENTIALS_PATH` 류 | 이 저장소에는 없다. 대신 `OLLAMA_HOST`(기본 `http://localhost:11434`), `OPENAI_API_KEY`, 그리고 `bench --jobs`(기본 `<루트>/jobs`)·`--manifest`(기본 `benchmark/tasks.json`) 가 경로를 정한다 |
 
 ---
 
 ## 진행 순서
 
-- [ ] `harness-design-kit` 내려받아 D01~D07 합의 (`PRD.md` · `DECISIONS.md`)
-- [ ] `INTERFACES.md` — 세 연결의 입력·출력·오류 + 구체적 계약 한 개
-- [ ] `ACCEPTANCE.md` — A01~A12 상태 + 내 시나리오 정상/실패 각 하나 (Given·When·Then)
-- [ ] `IMPLEMENTATION_PLAN.md` — 실행 환경·의존성·순서
-- [ ] 첫 수직 구현 (읽기 하나) → A01·A02 증거
-- [ ] 실패 경로 (없는 파일 · 범위 밖 경로 · 잘못된 인자 · 반복 상한) → A05·A06·A07
-- [ ] 변경 제안·승인·테스트 → A03·A04
-- [ ] 세션 정책 → A08 (·A09)
-- [ ] `harness-lab` 읽고 내 설계와 대조
-- [ ] `agent-terminal-benchmark` 준비 (`--prepare`, `--dry-run`)
-- [ ] `my_agent.py` 로 내 하네스 연결
-- [ ] **기준 실행** `baseline` (10문항) → A11
-- [ ] 실패 기록에서 **변경 가설 하나** 세우기
-- [ ] 코드·명세·검증 갱신 + 회귀 검사
-- [ ] **개선 실행** `improved` (같은 조건, 10문항) → A12
-- [ ] `--compare` 비교 보고서 (`trials.csv` · `report.json` · `index.html` ×2)
-- [ ] `EXPERIMENT_REPORT.md` 작성 (좋아진 점 · 나빠진 점 · 남은 한계 · 미측정 항목)
-- [ ] 제출용 사본 정리 (upstream·캐시·키 제외, 제외 목록과 이유 명시)
-- [ ] LMS `제출하기 이동`
+진행 상황은 `PLAN.md` 에 있다. 마지막 항목(LMS 제출 클릭)만 남았다.
 
 ---
 

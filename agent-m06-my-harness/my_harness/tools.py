@@ -12,6 +12,7 @@ from typing import Any
 from jsonschema import Draft202012Validator
 from jsonschema.exceptions import ValidationError
 
+from . import orientation
 from .approval import Approver, ChangeRequest
 from .contracts import ToolCall, ToolOutcome, ToolRejected, ToolSpec
 from .execute import run_python_file, run_unittest
@@ -28,7 +29,7 @@ def _object(**fields: dict) -> dict:
 
 LIST_FILES = ToolSpec(
     "list_files",
-    "작업 폴더 안에서 보이는 파일 목록을 최대 300개까지 돌려준다. 숨김 파일과 심볼릭 링크는 제외한다.",
+    "작업 폴더의 파일 목록을 최대 300개까지 돌려준다. 보이는 파일은 files, 숨김 경로 파일은 hidden 으로 따로 표시한다 (숨김은 read_file 로 열 수 없고 run_python 보조 스크립트로 읽는다). 심볼릭 링크는 제외한다.",
     NO_ARGS)
 READ_FILE = ToolSpec(
     "read_file",
@@ -85,11 +86,13 @@ class ToolBox:
             return ToolOutcome(call.id, call.name, False,
                                error=f"unknown_tool: 등록되지 않은 도구 {call.name!r}",
                                hint=f"쓸 수 있는 도구: {known}")
+        arguments: dict[str, Any] = {}
         try:
             arguments = self._arguments(call)
             payload = await handler(call, arguments)
         except ToolRejected as exc:
-            return ToolOutcome(call.id, call.name, False, error=str(exc), hint=exc.hint)
+            return ToolOutcome(call.id, call.name, False, error=str(exc),
+                               hint=self._enriched_hint(exc, arguments))
         except (OSError, UnicodeDecodeError, ValueError, TypeError) as exc:
             return ToolOutcome(call.id, call.name, False,
                                error=f"tool_failed: {type(exc).__name__}: {exc}")
@@ -119,11 +122,36 @@ class ToolBox:
                                f"{call.name} 의 인자 스키마를 다시 확인하세요.") from exc
         return raw
 
+    def _enriched_hint(self, exc: ToolRejected, arguments: dict) -> str:
+        """경로 실패에는 하네스가 방금 확인한 실제 후보 경로를 붙여 돌려준다.
+
+        기준 실행에서 경로 실패 21건이 대부분 "다시 list_files" 로 이어졌다. 고칠 재료를
+        같은 응답에 넣어 왕복을 없앤다.
+        """
+        if exc.code not in {"not_found", "path_rejected", "not_python", "not_a_file"}:
+            return exc.hint
+        report = orientation.survey(self.workspace)
+        choices = orientation.candidates(report, arguments.get("path"))
+        parts = [exc.hint] if exc.hint else []
+        if choices:
+            parts.append("작업 폴더의 실제 경로 후보: " + ", ".join(choices))
+        note = orientation.hidden_note(report)
+        if note:
+            parts.append(note)
+        return " ".join(parts)
+
     # ------------------------------------------------------------------ 도구
     async def _list_files(self, call: ToolCall, arguments: dict) -> dict:
-        files, truncated = self.workspace.visible_files()
-        return {"files": files, "count": len(files), "truncated": truncated,
-                "start_dir": self.start_dir}
+        report = orientation.survey(self.workspace)
+        payload: dict[str, Any] = {"files": report.visible, "count": len(report.visible),
+                                   "hidden_count": len(report.hidden),
+                                   "hidden": report.hidden[:50],
+                                   "truncated": report.truncated,
+                                   "start_dir": self.start_dir}
+        note = orientation.hidden_note(report)
+        if note:
+            payload["_hint"] = note
+        return payload
 
     async def _read_file(self, call: ToolCall, arguments: dict) -> dict:
         relative, target = self.workspace.resolve_for_read(arguments["path"])

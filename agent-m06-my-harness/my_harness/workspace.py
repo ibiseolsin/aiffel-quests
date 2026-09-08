@@ -93,21 +93,32 @@ class Workspace:
         return relative, target
 
     # ------------------------------------------------------------------ 목록
-    def visible_files(self, limit: int = 300) -> tuple[list[str], bool]:
-        files: list[str] = []
+    def all_files(self, limit: int = 300) -> tuple[list[str], list[str], bool]:
+        """보이는 파일과 숨김 경로 파일을 따로 돌려준다.
+
+        숨김 파일은 도구로 열 수 없지만 **존재한다는 사실은 알려야 한다** — 기준 실행에서
+        모델이 빈 목록을 받고 "폴더가 비었다" 로 오해해 단계를 다 태운 문항이 있었다.
+        """
+        visible: list[str] = []
+        hidden: list[str] = []
         for directory, names, filenames in os.walk(self.root, followlinks=False):
             here = Path(directory)
             names[:] = sorted(name for name in names
-                              if not name.startswith(".") and name != "__pycache__"
-                              and not (here / name).is_symlink())
+                              if name != "__pycache__" and not (here / name).is_symlink())
             for name in sorted(filenames):
                 target = here / name
-                if name.startswith(".") or target.is_symlink() or not target.is_file():
+                if target.is_symlink() or not target.is_file():
                     continue
-                files.append(target.relative_to(self.root).as_posix())
-                if len(files) >= limit:
-                    return files, True
-        return files, False
+                relative = target.relative_to(self.root).as_posix()
+                bucket = hidden if any(part.startswith(".") for part in relative.split("/")) else visible
+                bucket.append(relative)
+                if len(visible) + len(hidden) >= limit:
+                    return visible, hidden, True
+        return visible, hidden, False
+
+    def visible_files(self, limit: int = 300) -> tuple[list[str], bool]:
+        visible, _hidden, truncated = self.all_files(limit)
+        return visible, truncated
 
 
 def digest(data: bytes) -> str:

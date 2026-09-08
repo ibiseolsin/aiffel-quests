@@ -1,0 +1,46 @@
+{
+  "variant": "own-baseline",
+  "kind": "agent_evaluation",
+  "suite_id": "terminal-bench-pro-local-port-v2",
+  "revision": "874af409da6aafebccbf3bc5bb41a2fa4d78784d",
+  "provider": "ollama",
+  "port_version": "2.0.0",
+  "local_corrections": [
+    "sudoku-explicit-io-contract-and-clue-checks",
+    "blockchain-original-ledger-oracle",
+    "immutable-input-fixtures"
+  ],
+  "execution_mode": "local-port",
+  "platform": "Windows-11-10.0.26200-SP0",
+  "python_version": "3.13.15",
+  "hostlimits": "unrestricted",
+  "model": "qwen3.5:2b",
+  "attempts": 1,
+  "expected_tasks": [
+    "extract-paper-metadata-to-json",
+    "python-sudoku-solver-backtracking",
+    "detect-corrupted-blockchain-transaction",
+    "implement-go-board-analyzer",
+    "python-sokoban-bfs-solver",
+    "recover-encrypted-db-credentials",
+    "advanced-json-to-rfc4180-csv-converter",
+    "implement-depgraph-dependency-resolver",
+    "implement-lz77-file-compressor",
+    "implement-nonogram-puzzle-solver"
+  ],
+  "manifest_sha256": "21f333a94929d6ce9cf0e184a8865ed5d5feca1cc33b3c6536b771ae2edb30a6",
+  "agent_source_path": "C:\\Users\\김지훈\\dev\\aiffel-quests\\agent-m06-my-harness\\my_harness\\__init__.py",
+  "source_sha256": "2f7e4a96a9a20bbdcd6553ae428ed7fe26f5fe89a72a610273ea2bfb98063cc1",
+  "code_sha256": "2f7e4a96a9a20bbdcd6553ae428ed7fe26f5fe89a72a610273ea2bfb98063cc1",
+  "agent_import_path": "my_harness.benchmark_adapter:solve_task",
+  "limits": {
+    "max_steps": 20,
+    "max_seconds": 600.0,
+    "command_timeout": 10.0,
+    "max_output_tokens": 4000
+  },
+  "started_at": "2026-09-08T15:55:14.654814+00:00",
+  "status": "finished",
+  "finished_at": "2026-09-08T16:07:25.839747+00:00",
+  "exit_code": 0
+}

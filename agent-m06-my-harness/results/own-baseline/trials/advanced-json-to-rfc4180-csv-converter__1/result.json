@@ -1,0 +1,54 @@
+{
+  "id": "1bb738f8c6a94ec1a92493b01c1f559c",
+  "task_name": "advanced-json-to-rfc4180-csv-converter",
+  "trial_name": "advanced-json-to-rfc4180-csv-converter__1",
+  "started_at": "2026-09-08T16:03:47.122973+00:00",
+  "finished_at": "2026-09-08T16:04:39.450938+00:00",
+  "agent_result": {
+    "status": "provider_error",
+    "answer": "",
+    "metrics": {
+      "model_calls": 8,
+      "tool_calls": 7,
+      "tool_errors": 5,
+      "approvals_granted": 0,
+      "approvals_rejected": 0,
+      "usage_known": false,
+      "elapsed_seconds": 49.781,
+      "evidence_counts": {},
+      "stop_reason": "모델 제공자 오류: Ollama 응답이 완결되지 않았다 (done_reason='length')"
+    },
+    "n_input_tokens": null,
+    "n_output_tokens": null,
+    "n_cache_tokens": null,
+    "cost_usd": null
+  },
+  "fixture_sha256": {
+    "home/user/sales.json": "3dddadc287695c7285e869b70384a0fe5554d8ffcb640b2a7d27a03fd5fdd877"
+  },
+  "verifier_result": {
+    "rewards": {
+      "reward": 0
+    },
+    "fixture_changes": [],
+    "reward": 0,
+    "checks_passed": 0,
+    "checks_total": 90,
+    "checks_failed": 90,
+    "checks_errors": 0,
+    "checks_skipped": 0,
+    "cleanup_incomplete": false,
+    "exit_code": 1,
+    "timed_out": false,
+    "truncated": false,
+    "details": {
+      "junit": "C:\\Users\\김지훈\\dev\\aiffel-quests\\agent-m06-my-harness\\vendor\\agent-terminal-benchmark\\jobs\\own-baseline\\advanced-json-to-rfc4180-csv-converter__1\\verifier\\results.xml",
+      "stdout": "C:\\Users\\김지훈\\dev\\aiffel-quests\\agent-m06-my-harness\\vendor\\agent-terminal-benchmark\\jobs\\own-baseline\\advanced-json-to-rfc4180-csv-converter__1\\verifier\\stdout.txt",
+      "stderr": "C:\\Users\\김지훈\\dev\\aiffel-quests\\agent-m06-my-harness\\vendor\\agent-terminal-benchmark\\jobs\\own-baseline\\advanced-json-to-rfc4180-csv-converter__1\\verifier\\stderr.txt"
+    }
+  },
+  "exception_info": {
+    "exception_type": "AgentIncomplete",
+    "message": "provider_error"
+  }
+}

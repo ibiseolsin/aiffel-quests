@@ -1,0 +1,62 @@
+{
+  "id": "345a0a8a99c54d23a7f75adf6f58fd09",
+  "task_name": "extract-paper-metadata-to-json",
+  "trial_name": "extract-paper-metadata-to-json__1",
+  "started_at": "2026-09-08T15:55:15.142815+00:00",
+  "finished_at": "2026-09-08T15:56:39.735645+00:00",
+  "agent_result": {
+    "status": "step_limit",
+    "answer": "",
+    "metrics": {
+      "model_calls": 20,
+      "tool_calls": 23,
+      "tool_errors": 5,
+      "approvals_granted": 3,
+      "approvals_rejected": 0,
+      "input_tokens": 162491,
+      "output_tokens": 7504,
+      "usage_known": true,
+      "elapsed_seconds": 83.667,
+      "evidence_counts": {
+        "read": 8,
+        "write": 3,
+        "run_python": 2
+      },
+      "stop_reason": "모델 호출 한도 20회에 걸려 멈췄다"
+    },
+    "n_input_tokens": 162491,
+    "n_output_tokens": 7504,
+    "n_cache_tokens": null,
+    "cost_usd": null
+  },
+  "fixture_sha256": {
+    "protected/papers/paper1.txt": "7571ff5b61ba21f531f763e41ce0d8b2cf0749b10030038a864cf866a50f8944",
+    "protected/papers/paper2.txt": "d44e52ed3da8a7bf9ec9a0117fd14f4414b9974a653498b827af35c484c8e443",
+    "protected/papers/paper3.txt": "5365e877f59e146e62c3da8be310c7b79234d484d452d0fd9eada66eca882081"
+  },
+  "verifier_result": {
+    "rewards": {
+      "reward": 0
+    },
+    "fixture_changes": [],
+    "reward": 0,
+    "checks_passed": 12,
+    "checks_total": 13,
+    "checks_failed": 1,
+    "checks_errors": 0,
+    "checks_skipped": 0,
+    "cleanup_incomplete": false,
+    "exit_code": 1,
+    "timed_out": false,
+    "truncated": false,
+    "details": {
+      "junit": "C:\\Users\\김지훈\\dev\\aiffel-quests\\agent-m06-my-harness\\vendor\\agent-terminal-benchmark\\jobs\\own-baseline\\extract-paper-metadata-to-json__1\\verifier\\results.xml",
+      "stdout": "C:\\Users\\김지훈\\dev\\aiffel-quests\\agent-m06-my-harness\\vendor\\agent-terminal-benchmark\\jobs\\own-baseline\\extract-paper-metadata-to-json__1\\verifier\\stdout.txt",
+      "stderr": "C:\\Users\\김지훈\\dev\\aiffel-quests\\agent-m06-my-harness\\vendor\\agent-terminal-benchmark\\jobs\\own-baseline\\extract-paper-metadata-to-json__1\\verifier\\stderr.txt"
+    }
+  },
+  "exception_info": {
+    "exception_type": "AgentIncomplete",
+    "message": "step_limit"
+  }
+}

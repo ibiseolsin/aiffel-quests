@@ -49,9 +49,15 @@ uv run python -m harness_lab.bench --name own-baseline --agent my_harness.benchm
 
 ## 3. 코딩 작업과 권한
 
-`fixtures/receipt.py` 에 결함 3개, `fixtures/test_receipt.py` 에 테스트 5개(2개 실패)를 두었다.
-변경 제안 → diff 표시 → 승인/거절 → 적용 → **고정 대상** 테스트 → 결과. 거절 시 sha256 대조.
-→ A03(FAIL, 원인 기록) · A04(PASS)
+fixture 를 두 단계로 두었다. `fixtures/greeting.py`(결함 1개, 테스트 2개)와
+`fixtures/receipt.py`(결함 3개, 테스트 5개 중 2개 실패). 변경 제안 → diff 표시 → 승인/거절 → 적용 →
+**고정 대상** 테스트 → 결과. 거절 시 sha256 대조.
+
+- A03: 기준 버전 `FAIL`(잘린 응답으로 반복이 죽음) → 개선 버전 `greeting.py` 에서 `PASS`
+  (승인 후 적용, `run_tests` exit 0, 하네스 밖 재확인 OK)
+- `receipt.py` 는 개선 버전에서도 실패했다. **하네스 경로는 다 돌았고**(읽기 4회·기록 5회·테스트 3회)
+  실패는 모델이 만든 수정의 품질이다 — 원인 구분을 `EXPERIMENT_REPORT.md` 에 적었다.
+- A04: 두 버전 모두 `PASS` (거절 뒤 파일 sha256 불변)
 
 ## 4. 제품 기능
 
@@ -76,6 +82,18 @@ uv run python -m harness_lab.bench --name own-baseline --agent my_harness.benchm
 | 세션 | R06/A08·A09 | `session.py` — 원자적 저장, 설정 불일치 거부, 미결 호출 닫기 | A08·A09 | 세션 파일에 fixture 내용이 들어간다 → 공개 제외 |
 | 제공자 | R07 | `providers.py` — Ollama 네이티브, `num_ctx` 유도 | A01·A07 | `num_ctx` 미지정 시 4k 로 잘려 매 실행이 죽었다 (실측 후 수정) |
 | 벤치마크 연결 | R08/A11 | `benchmark_adapter.py` | 문항 1개 smoke → 연결 확인 | smoke 는 점수가 아니다 |
+| **기준 실행** | A11 | 변경 없음 | 10문항 `pass 0 · fail 0 · error 10` (`results/own-baseline/`) | 열 문항 모두 미완료로 끝났다 — 원인 분석은 `EXPERIMENT_REPORT.md` |
+| **개선(가설 1건)** | A11→A12 | `orientation.py` 신설 + `list_files` 계약 확장 + 경로 실패 hint 에 실제 후보 경로 + 첫 메시지에 관측 블록 | `pytest` 48건 통과(회귀 9건 추가), A03 이 `FAIL`→`PASS`, A04 유지 | 결과 비교는 `results/comparison/` |
+
+### 기준 실행 뒤 바꾼 것 (가설 1건)
+
+기준 실행의 이벤트 기록을 세어 나온 변경이다. 자세한 근거·수치·결과는 `EXPERIMENT_REPORT.md`.
+
+- 새 파일 `my_harness/orientation.py` — 작업 폴더 관측을 한곳에서 만든다 (`survey`/`brief`/`candidates`/`hidden_note`)
+- `workspace.all_files()` — 보이는 파일과 숨김 경로 파일을 따로 돌려준다
+- `tools.py` — `list_files` 가 `hidden`·`hidden_count` 를 함께 주고, 경로 실패의 `hint` 에 실제 후보 경로를 붙인다
+- `benchmark_adapter.py` · `cli.py` — 실행 시작 시 같은 관측을 첫 메시지에 한 번 넣는다
+- `tests/test_orientation.py` — 9건. **숨김 경로를 여는 것이 아니라는 것**(A05 경계 유지)까지 고정한다
 
 ### 실측으로 고친 설정 두 건 (기준 실행 **전**)
 

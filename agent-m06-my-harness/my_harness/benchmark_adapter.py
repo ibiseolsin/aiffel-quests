@@ -14,6 +14,7 @@ from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 
+from . import orientation
 from .approval import AutoApprover
 from .contracts import Limits
 from .loop import Harness
@@ -80,8 +81,8 @@ async def solve_task(instruction: str, workspace: Path, logs_dir: Path,
         session=Session(logs_dir / "session", "trial"),
         settings=settings)
     prompt = (f"{instruction}\n\n"
-              f"[하네스 안내] 이 작업의 시작 폴더는 작업 폴더 기준 {start_dir} 다. "
-              f"요구된 파일을 실제로 만들고, 만든 뒤 직접 실행해 확인하라.")
+              f"{orientation.brief(orientation.survey(space), start_dir)}\n\n"
+              f"[하네스 안내] 요구된 파일을 실제로 만들고, 만든 뒤 직접 실행해 확인하라.")
     try:
         outcome = await harness.run(prompt)
     finally:
