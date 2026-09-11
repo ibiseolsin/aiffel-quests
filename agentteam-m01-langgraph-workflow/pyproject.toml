@@ -1,0 +1,10 @@
+[project]
+name = "agentteam-m01-langgraph-workflow"
+version = "0.1.0"
+requires-python = ">=3.13"
+dependencies = [
+    "langchain>=1.4.0",
+    "langchain-openai>=1.6.2",
+    "langgraph>=1.2.11",
+    "python-dotenv>=1.2.3",
+]

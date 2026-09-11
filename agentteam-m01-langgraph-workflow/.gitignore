@@ -1,0 +1,8 @@
+# 파이썬
+__pycache__/
+*.pyc
+.venv/
+.ipynb_checkpoints/
+
+# 실행 산출물
+outputs/
