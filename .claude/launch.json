@@ -4,20 +4,61 @@
     {
       "name": "m05-preview",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "preview", "--prefix", "m05-rag-chatbot-service/app", "--", "--port", "4175"],
+      "runtimeArgs": [
+        "run",
+        "preview",
+        "--prefix",
+        "m05-rag-chatbot-service/app",
+        "--",
+        "--port",
+        "4175"
+      ],
       "port": 4175
     },
     {
       "name": "m05-dev-5173",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev", "--prefix", "m05-rag-chatbot-service/app", "--", "--port", "5173"],
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "--prefix",
+        "m05-rag-chatbot-service/app",
+        "--",
+        "--port",
+        "5173"
+      ],
       "port": 5173
     },
     {
       "name": "m05-dev",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev", "--prefix", "m05-rag-chatbot-service/app", "--", "--port", "5175"],
+      "runtimeArgs": [
+        "run",
+        "dev",
+        "--prefix",
+        "m05-rag-chatbot-service/app",
+        "--",
+        "--port",
+        "5175"
+      ],
       "port": 5175
+    },
+    {
+      "name": "m01-jupyter",
+      "runtimeExecutable": "uv",
+      "runtimeArgs": [
+        "run",
+        "--directory",
+        "agentteam-m01-langgraph-workflow",
+        "jupyter",
+        "lab",
+        "--no-browser",
+        "--port",
+        "8888",
+        "--IdentityProvider.token=aiffel"
+      ],
+      "port": 8888,
+      "url": "http://localhost:8888"
     }
   ]
 }
