@@ -59,6 +59,28 @@
       ],
       "port": 8888,
       "url": "http://localhost:8888"
+    },
+    {
+      "name": "agentteam-m05-demo",
+      "runtimeExecutable": "uv",
+      "runtimeArgs": [
+        "run",
+        "--directory",
+        "agentteam-m05-customer-support-agent",
+        "streamlit",
+        "run",
+        "app.py",
+        "--server.address",
+        "127.0.0.1",
+        "--server.port",
+        "8701",
+        "--server.headless",
+        "true",
+        "--browser.gatherUsageStats",
+        "false"
+      ],
+      "port": 8701,
+      "url": "http://127.0.0.1:8701"
     }
   ]
 }
